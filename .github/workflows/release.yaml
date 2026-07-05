@@ -14,14 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: get version
         id: version
-        uses: notiz-dev/github-action-json-property@release
-        with:
-          path: "package.json"
-          prop_path: "version"
+        run: echo "prop=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
       - name: Set Environment Variables
         run: |
@@ -52,7 +49,7 @@ jobs:
           include-files: metaList
 
       - name: Make Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.prop }}
           files: |
