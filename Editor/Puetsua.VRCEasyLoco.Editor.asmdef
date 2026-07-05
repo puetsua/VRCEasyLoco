@@ -1,0 +1,18 @@
+{
+    "name": "Puetsua.VRCEasyLoco.Editor",
+    "references": [
+        "Puetsua.VRCEasyLoco",
+        "nadena.dev.modular-avatar.core"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
