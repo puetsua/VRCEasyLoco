@@ -1,0 +1,76 @@
+name: Build Release packages
+
+on:
+  workflow_dispatch:
+
+env:
+  packageName: "VRCEasyLoco"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: get version
+        id: version
+        uses: notiz-dev/github-action-json-property@release
+        with:
+          path: "package.json"
+          prop_path: "version"
+
+      - name: Set Environment Variables
+        run: |
+          echo "zipFile=${{ env.packageName }}-${{ steps.version.outputs.prop }}.zip" >> $GITHUB_ENV
+          echo "unityPackage=${{ env.packageName }}-${{ steps.version.outputs.prop }}.unitypackage" >> $GITHUB_ENV
+
+      - name: Make Package Folder
+        run: |
+          mkdir Packages
+          mkdir Packages/${{ env.packageName }}
+          ls | grep -v Packages | xargs mv -t Packages/${{ env.packageName }}
+
+      - name: Create Zip
+        uses: thedoctor0/zip-release@09336613be18a8208dfa66bd57efafd9e2685657
+        with:
+          type: "zip"
+          directory: "Packages/${{ env.packageName }}/"
+          filename: "../../${{ env.zipFile }}"
+          exclusions: ".git*"
+
+      - name: Track Package Meta Files
+        run: find "Packages/${{ env.packageName }}/" -name \*.meta >> metaList
+
+      - name: Create UnityPackage
+        uses: pCYSl5EDgo/create-unitypackage@v1.2.3
+        with:
+          package-path: ${{ env.unityPackage }}
+          include-files: metaList
+
+      - name: Make Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.prop }}
+          files: |
+            ${{ env.zipFile }}
+            ${{ env.unityPackage }}
+
+      - name: Notify VPM listing (puetsua/vrc-stuff)
+        env:
+          GH_TOKEN: ${{ secrets.VPM_LISTING_TOKEN }}
+          PACKAGE_NAME: vrchat.puetsuaworkshop.easyloco
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.prop }}/${{ env.zipFile }}
+        run: |
+          jq -n \
+            --arg name "$PACKAGE_NAME" \
+            --arg url "$RELEASE_URL" \
+            '{event_type:"add-package-release",client_payload:{packageName:$name,releaseUrl:$url}}' \
+            | gh api --method POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                /repos/puetsua/vrc-stuff/dispatches \
+                --input -
