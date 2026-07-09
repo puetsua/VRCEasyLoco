@@ -6,7 +6,7 @@ AnimatorController:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: vrc_AvatarV3LocomotionLayer
+  m_Name: EasyLocoBaseTemplate
   serializedVersion: 5
   m_AnimatorParameters:
   - m_Name: VelocityX
@@ -5617,7 +5617,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 20600000, guid: 667633d86ecc9c0408e81156d77d9a83, type: 2}
+  m_Motion: {fileID: 20600000, guid: cbc057694b2f4074d9e2e6aeb9c483d5, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 
@@ -5678,7 +5678,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 20600000, guid: b7ff0bc6ae31ce4458992fa6ce9f6897, type: 2}
+  m_Motion: {fileID: 20600000, guid: 8d5e8b5f2b9e9af468872a3598c9b155, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 
@@ -5758,7 +5758,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 20600000, guid: 1fe93258fe621c344be8713451c5104f, type: 2}
+  m_Motion: {fileID: 20600000, guid: 1f2c000b8b4c4f44cae90ce4b928bae1, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 

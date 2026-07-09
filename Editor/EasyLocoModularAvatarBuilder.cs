@@ -14,8 +14,8 @@ namespace Puetsua.VRCEasyLoco.Editor
     internal static class EasyLocoModularAvatarBuilder
     {
         private const string TemplateControllerFolder = "Packages/vrchat.puetsuaworkshop.easyloco/Animators";
-        private const string BaseTemplatePath = TemplateControllerFolder + "/EasyLoco_BaseTemplate.controller";
-        private const string ActionTemplatePath = TemplateControllerFolder + "/EasyLoco_ActionTemplate.controller";
+        private const string BaseTemplatePath = TemplateControllerFolder + "/EasyLocoBaseTemplate.controller";
+        private const string ActionTemplatePath = TemplateControllerFolder + "/EasyLocoActionTemplate.controller";
         private const string EntryMenuPath = "Packages/vrchat.puetsuaworkshop.easyloco/Menus/EasyLocoEntry.asset";
         private const string EmoteParameterName = "VRCEmote";
         private const string GeneratedRoot = "Assets/PuetsuaWorkshop/Generated/EasyLoco";
@@ -41,10 +41,10 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             // Always generate copies of both templates so the avatar merges the generated
             // controllers, never the shared template assets (which a user could edit by accident).
-            var baseController = BuildController(BaseTemplatePath, outputFolder, "EasyLoco_Base.controller", CreateBaseReplacements(easyLoco));
+            var baseController = BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", CreateBaseReplacements(easyLoco));
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController);
 
-            var actionController = BuildController(ActionTemplatePath, outputFolder, "EasyLoco_Action.controller", CreateActionReplacements(easyLoco));
+            var actionController = BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", CreateActionReplacements(easyLoco));
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Action, actionController);
 
             // The Action layer is driven by VRCEmote, exposed through the EasyLoco expression menu.
@@ -76,7 +76,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(outputPath);
-            ReplaceMotions(controller, replacements);
+            ReplaceMotions(controller, replacements, outputFolder);
             EditorUtility.SetDirty(controller);
             return controller;
         }
@@ -89,9 +89,11 @@ namespace Puetsua.VRCEasyLoco.Editor
                 return replacements;
             }
 
-            AddReplacement(replacements, "proxy_stand_still", easyLoco.baseStandStill);
-            AddReplacement(replacements, "proxy_crouch_still", easyLoco.baseCrouchStill);
-            AddReplacement(replacements, "proxy_low_crawl_still", easyLoco.baseLowCrawlStill);
+            // These names are the idle (velocity-zero) clips embedded at the centre of the
+            // Default* locomotion blend trees; swapping them changes the still pose only.
+            AddReplacement(replacements, "IdleDefaultStand", easyLoco.baseStandStill);
+            AddReplacement(replacements, "IdleDefaultCrouch", easyLoco.baseCrouchStill);
+            AddReplacement(replacements, "IdleDefaultProne", easyLoco.baseLowCrawlStill);
             return replacements;
         }
 
@@ -115,35 +117,40 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        private static void ReplaceMotions(AnimatorController controller, IReadOnlyDictionary<string, Motion> replacements)
+        private static void ReplaceMotions(AnimatorController controller, IReadOnlyDictionary<string, Motion> replacements, string outputFolder)
         {
             if (controller == null || replacements == null || replacements.Count == 0)
             {
                 return;
             }
 
+            var controllerPath = AssetDatabase.GetAssetPath(controller);
             foreach (var layer in controller.layers)
             {
-                ReplaceMotions(layer.stateMachine, replacements);
+                ReplaceMotions(layer.stateMachine, replacements, outputFolder, controllerPath);
             }
         }
 
-        private static void ReplaceMotions(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, Motion> replacements)
+        private static void ReplaceMotions(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath)
         {
             foreach (var childState in stateMachine.states)
             {
                 var state = childState.state;
-                state.motion = ReplaceMotion(state.motion, replacements);
-                EditorUtility.SetDirty(state);
+                var replaced = ReplaceMotion(state.motion, replacements, outputFolder, controllerPath);
+                if (replaced != state.motion)
+                {
+                    state.motion = replaced;
+                    EditorUtility.SetDirty(state);
+                }
             }
 
             foreach (var childStateMachine in stateMachine.stateMachines)
             {
-                ReplaceMotions(childStateMachine.stateMachine, replacements);
+                ReplaceMotions(childStateMachine.stateMachine, replacements, outputFolder, controllerPath);
             }
         }
 
-        private static Motion ReplaceMotion(Motion motion, IReadOnlyDictionary<string, Motion> replacements)
+        private static Motion ReplaceMotion(Motion motion, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath)
         {
             if (motion == null)
             {
@@ -152,14 +159,30 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             if (motion is BlendTree blendTree)
             {
-                ReplaceBlendTreeMotions(blendTree, replacements);
+                if (!SubtreeContainsReplacement(blendTree, replacements))
+                {
+                    return blendTree;
+                }
+
+                // The Default* locomotion blend trees live as shared package assets. Mutating them
+                // in place would corrupt the package for every avatar, so clone the whole tree into
+                // this avatar's generated folder and swap the idle clip inside the copy instead.
+                var motionPath = AssetDatabase.GetAssetPath(blendTree);
+                var isSharedAsset = !string.IsNullOrEmpty(motionPath) && motionPath != controllerPath;
+                if (isSharedAsset)
+                {
+                    return CloneBlendTree(blendTree, replacements, outputFolder);
+                }
+
+                // Blend trees embedded inside the copied controller are owned by it and safe to edit.
+                ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath);
                 return blendTree;
             }
 
             return replacements.TryGetValue(motion.name, out var replacement) ? replacement : motion;
         }
 
-        private static void ReplaceBlendTreeMotions(BlendTree blendTree, IReadOnlyDictionary<string, Motion> replacements)
+        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath)
         {
             var children = blendTree.children;
             var changed = false;
@@ -167,7 +190,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             for (var i = 0; i < children.Length; i++)
             {
                 var original = children[i].motion;
-                var replaced = ReplaceMotion(original, replacements);
+                var replaced = ReplaceMotion(original, replacements, outputFolder, controllerPath);
                 if (replaced != original)
                 {
                     children[i].motion = replaced;
@@ -180,6 +203,79 @@ namespace Puetsua.VRCEasyLoco.Editor
                 blendTree.children = children;
                 EditorUtility.SetDirty(blendTree);
             }
+        }
+
+        private static bool SubtreeContainsReplacement(BlendTree blendTree, IReadOnlyDictionary<string, Motion> replacements)
+        {
+            foreach (var child in blendTree.children)
+            {
+                var motion = child.motion;
+                if (motion is BlendTree childTree)
+                {
+                    if (SubtreeContainsReplacement(childTree, replacements))
+                    {
+                        return true;
+                    }
+                }
+                else if (motion != null && replacements.ContainsKey(motion.name))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static BlendTree CloneBlendTree(BlendTree source, IReadOnlyDictionary<string, Motion> replacements, string outputFolder)
+        {
+            var nested = new List<BlendTree>();
+            var root = CloneBlendTreeInMemory(source, replacements, nested);
+
+            // Deterministic name so rebuilding overwrites the previous clone instead of piling up copies.
+            var clonePath = outputFolder + "/EasyLoco" + SanitizeFileName(source.name) + ".asset";
+            if (AssetDatabase.LoadAssetAtPath<Object>(clonePath) != null)
+            {
+                AssetDatabase.DeleteAsset(clonePath);
+            }
+
+            AssetDatabase.CreateAsset(root, clonePath);
+            foreach (var childTree in nested)
+            {
+                if (childTree == root)
+                {
+                    continue;
+                }
+
+                childTree.hideFlags = HideFlags.HideInHierarchy;
+                AssetDatabase.AddObjectToAsset(childTree, root);
+            }
+
+            EditorUtility.SetDirty(root);
+            return root;
+        }
+
+        private static BlendTree CloneBlendTreeInMemory(BlendTree source, IReadOnlyDictionary<string, Motion> replacements, List<BlendTree> collected)
+        {
+            var clone = Object.Instantiate(source);
+            clone.name = source.name;
+
+            var children = clone.children;
+            for (var i = 0; i < children.Length; i++)
+            {
+                var motion = children[i].motion;
+                if (motion is BlendTree childTree)
+                {
+                    children[i].motion = CloneBlendTreeInMemory(childTree, replacements, collected);
+                }
+                else if (motion != null && replacements.TryGetValue(motion.name, out var replacement))
+                {
+                    children[i].motion = replacement;
+                }
+            }
+
+            clone.children = children;
+            collected.Add(clone);
+            return clone;
         }
 
         private static void EnsureMenuInstaller(GameObject host)

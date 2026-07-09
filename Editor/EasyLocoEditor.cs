@@ -37,7 +37,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Template Animators", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("EasyLoco Animators", EditorStyles.boldLabel);
             DrawBaseSlots();
             DrawActionSlots();
 

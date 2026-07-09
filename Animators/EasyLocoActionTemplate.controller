@@ -362,7 +362,7 @@ AnimatorController:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: vrc_AvatarV3ActionLayer
+  m_Name: EasyLocoActionTemplate
   serializedVersion: 5
   m_AnimatorParameters:
   - m_Name: VRCEmote
@@ -8351,15 +8351,15 @@ AnimatorStateMachine:
   m_AnyStateTransitions: []
   m_EntryTransitions: []
   m_StateMachineTransitions:
-  - first: {fileID: 1074264113444521015}
-    second:
-    - {fileID: 4808501126666954633}
-  - first: {fileID: 1034539671829654986}
-    second:
-    - {fileID: -4008230766715971824}
   - first: {fileID: 3382117647781723077}
     second:
     - {fileID: -3267321853156429649}
+  - first: {fileID: 1034539671829654986}
+    second:
+    - {fileID: -4008230766715971824}
+  - first: {fileID: 1074264113444521015}
+    second:
+    - {fileID: 4808501126666954633}
   m_StateMachineBehaviours: []
   m_AnyStatePosition: {x: -580, y: 100, z: 0}
   m_EntryPosition: {x: -580, y: 170, z: 0}
