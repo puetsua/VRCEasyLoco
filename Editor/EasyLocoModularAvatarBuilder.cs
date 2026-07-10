@@ -13,12 +13,33 @@ namespace Puetsua.VRCEasyLoco.Editor
 {
     internal static class EasyLocoModularAvatarBuilder
     {
-        private const string TemplateControllerFolder = "Packages/vrchat.puetsuaworkshop.easyloco/Animators";
+        private const string TemplateControllerFolder = EasyLocoConst.PackageRoot + "/Animators";
         private const string BaseTemplatePath = TemplateControllerFolder + "/EasyLocoBaseTemplate.controller";
         private const string ActionTemplatePath = TemplateControllerFolder + "/EasyLocoActionTemplate.controller";
-        private const string EntryMenuPath = "Packages/vrchat.puetsuaworkshop.easyloco/Menus/EasyLocoEntry.asset";
+        private const string EntryMenuPath = EasyLocoConst.MenusFolder + "/EasyLocoEntry.asset";
         private const string EmoteParameterName = "VRCEmote";
         private const string GeneratedRoot = "Assets/PuetsuaWorkshop/Generated/EasyLoco";
+
+        /// <summary>Per-stance idle build state gathered up front and reused for params + menu.</summary>
+        private sealed class StanceBuild
+        {
+            public readonly string Key;
+            public readonly List<EasyLoco.IdlePose> Poses;
+            public readonly string IdleTargetName;
+            public readonly string ParamName;
+
+            public List<EasyLoco.IdlePose> Entries;
+            public Motion Motion;
+            public bool HasMenu;
+
+            public StanceBuild(string key, List<EasyLoco.IdlePose> poses, string idleTargetName, string paramName)
+            {
+                Key = key;
+                Poses = poses;
+                IdleTargetName = idleTargetName;
+                ParamName = paramName;
+            }
+        }
 
         public static void Build(EasyLoco easyLoco)
         {
@@ -30,8 +51,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             var avatar = easyLoco.Avatar;
             if (avatar == null)
             {
-                EditorUtility.DisplayDialog(EasyLocoConst.DisplayName, "EasyLoco must be placed on an avatar with a VRCAvatarDescriptor.", "OK");
-                return;
+                throw new System.InvalidOperationException("EasyLoco must be placed on an avatar with a VRCAvatarDescriptor.");
             }
 
             var outputFolder = GetOutputFolder(avatar);
@@ -39,9 +59,36 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             var host = GetOrCreateGeneratedObject(easyLoco);
 
+            var stances = new List<StanceBuild>
+            {
+                new StanceBuild("Stand", easyLoco.standPoses, EasyLocoConst.StandIdleTarget, EasyLocoConst.IdleStandParam),
+                new StanceBuild("Crouch", easyLoco.crouchPoses, EasyLocoConst.CrouchIdleTarget, EasyLocoConst.IdleCrouchParam),
+                new StanceBuild("Prone", easyLoco.pronePoses, EasyLocoConst.ProneIdleTarget, EasyLocoConst.IdleProneParam),
+            };
+
+            // Build each stance's idle motion: null (keep built-in), a single override clip, or a
+            // selector blend tree when more than one pose is registered.
+            var baseReplacements = new Dictionary<string, Motion>();
+            foreach (var stance in stances)
+            {
+                BuildIdleSelector(stance, outputFolder);
+                if (stance.Motion != null)
+                {
+                    baseReplacements[stance.IdleTargetName] = stance.Motion;
+                }
+            }
+
             // Always generate copies of both templates so the avatar merges the generated
             // controllers, never the shared template assets (which a user could edit by accident).
-            var baseController = BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", CreateBaseReplacements(easyLoco));
+            var baseController = (AnimatorController)BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements);
+            foreach (var stance in stances)
+            {
+                if (stance.HasMenu)
+                {
+                    EnsureIntParameter(baseController, stance.ParamName);
+                }
+            }
+            EditorUtility.SetDirty(baseController);
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController);
 
             var actionController = BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", CreateActionReplacements(easyLoco));
@@ -51,10 +98,72 @@ namespace Puetsua.VRCEasyLoco.Editor
             EnsureEmoteParameter(host);
             EnsureMenuInstaller(host);
 
+            // Idle-pose selection menu + its synced parameters (only for stances with >1 pose).
+            BuildIdlePoseMenu(host, stances, outputFolder);
+            foreach (var stance in stances)
+            {
+                if (stance.HasMenu)
+                {
+                    EnsureSyncedIntParameter(host, stance.ParamName);
+                }
+            }
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             EditorUtility.SetDirty(easyLoco);
-            EditorUtility.DisplayDialog(EasyLocoConst.DisplayName, "Built Modular Avatar controllers and expression menu.", "OK");
+        }
+
+        private static void BuildIdleSelector(StanceBuild stance, string outputFolder)
+        {
+            stance.Entries = (stance.Poses ?? new List<EasyLoco.IdlePose>())
+                .Where(pose => pose != null && pose.clip != null)
+                .ToList();
+
+            if (stance.Entries.Count == 0)
+            {
+                stance.Motion = null; // keep the template's built-in idle
+                stance.HasMenu = false;
+                return;
+            }
+
+            if (stance.Entries.Count == 1)
+            {
+                stance.Motion = stance.Entries[0].clip; // single override, no selector/menu
+                stance.HasMenu = false;
+                return;
+            }
+
+            var tree = new BlendTree
+            {
+                name = "EasyLocoIdle" + stance.Key,
+                blendType = BlendTreeType.Simple1D,
+                blendParameter = stance.ParamName,
+                useAutomaticThresholds = false,
+            };
+
+            var children = new ChildMotion[stance.Entries.Count];
+            for (var i = 0; i < children.Length; i++)
+            {
+                children[i] = new ChildMotion
+                {
+                    motion = stance.Entries[i].clip,
+                    threshold = i,
+                    timeScale = 1f,
+                    directBlendParameter = stance.ParamName,
+                };
+            }
+            tree.children = children;
+
+            var path = outputFolder + "/EasyLocoIdle" + stance.Key + ".asset";
+            if (AssetDatabase.LoadAssetAtPath<Object>(path) != null)
+            {
+                AssetDatabase.DeleteAsset(path);
+            }
+            AssetDatabase.CreateAsset(tree, path);
+            EditorUtility.SetDirty(tree);
+
+            stance.Motion = tree;
+            stance.HasMenu = true;
         }
 
         private static RuntimeAnimatorController BuildController(string sourcePath, string outputFolder, string fileName, IReadOnlyDictionary<string, Motion> replacements)
@@ -81,22 +190,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return controller;
         }
 
-        private static IReadOnlyDictionary<string, Motion> CreateBaseReplacements(EasyLoco easyLoco)
-        {
-            var replacements = new Dictionary<string, Motion>();
-            if (!easyLoco.useCustomBaseLocomotion)
-            {
-                return replacements;
-            }
-
-            // These names are the idle (velocity-zero) clips embedded at the centre of the
-            // Default* locomotion blend trees; swapping them changes the still pose only.
-            AddReplacement(replacements, "IdleDefaultStand", easyLoco.baseStandStill);
-            AddReplacement(replacements, "IdleDefaultCrouch", easyLoco.baseCrouchStill);
-            AddReplacement(replacements, "IdleDefaultProne", easyLoco.baseLowCrawlStill);
-            return replacements;
-        }
-
         private static IReadOnlyDictionary<string, Motion> CreateActionReplacements(EasyLoco easyLoco)
         {
             var replacements = new Dictionary<string, Motion>();
@@ -115,6 +208,16 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 replacements[targetMotionName] = animation;
             }
+        }
+
+        private static void EnsureIntParameter(AnimatorController controller, string name)
+        {
+            if (controller.parameters.Any(parameter => parameter.name == name))
+            {
+                return;
+            }
+
+            controller.AddParameter(name, AnimatorControllerParameterType.Int);
         }
 
         private static void ReplaceMotions(AnimatorController controller, IReadOnlyDictionary<string, Motion> replacements, string outputFolder)
@@ -278,6 +381,90 @@ namespace Puetsua.VRCEasyLoco.Editor
             return clone;
         }
 
+        private static void BuildIdlePoseMenu(GameObject host, List<StanceBuild> stances, string outputFolder)
+        {
+            var mainMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(EasyLocoConst.MainMenuPath);
+            if (mainMenu == null)
+            {
+                throw new FileNotFoundException("EasyLoco main menu was not found.", EasyLocoConst.MainMenuPath);
+            }
+
+            var menuStances = stances.Where(stance => stance.HasMenu).ToList();
+            if (menuStances.Count == 0)
+            {
+                RemoveIdleMenuInstaller(host, mainMenu);
+                return;
+            }
+
+            var root = GetOrCreateMenu(outputFolder + "/EasyLocoMainIdlePoses.asset");
+            root.controls.Clear();
+
+            foreach (var stance in menuStances)
+            {
+                var stanceMenu = GetOrCreateMenu(outputFolder + "/EasyLocoIdle" + stance.Key + "Menu.asset");
+                stanceMenu.controls.Clear();
+                for (var i = 0; i < stance.Entries.Count; i++)
+                {
+                    var label = string.IsNullOrEmpty(stance.Entries[i].menuName) ? "Pose " + i : stance.Entries[i].menuName;
+                    stanceMenu.controls.Add(MakeToggle(label, stance.ParamName, i));
+                }
+                EditorUtility.SetDirty(stanceMenu);
+
+                root.controls.Add(MakeSubMenu(stance.Key, stanceMenu));
+            }
+            EditorUtility.SetDirty(root);
+
+            var entry = GetOrCreateMenu(outputFolder + "/EasyLocoIdlePosesEntry.asset");
+            entry.controls.Clear();
+            entry.controls.Add(MakeSubMenu("Idle Poses", root));
+            EditorUtility.SetDirty(entry);
+
+            EnsureIdleMenuInstaller(host, entry, mainMenu);
+        }
+
+        private static VRCExpressionsMenu.Control MakeToggle(string name, string parameterName, int value)
+        {
+            return new VRCExpressionsMenu.Control
+            {
+                name = name,
+                type = VRCExpressionsMenu.Control.ControlType.Toggle,
+                parameter = new VRCExpressionsMenu.Control.Parameter { name = parameterName },
+                value = value,
+                subParameters = new VRCExpressionsMenu.Control.Parameter[0],
+                labels = new VRCExpressionsMenu.Control.Label[0],
+            };
+        }
+
+        private static VRCExpressionsMenu.Control MakeSubMenu(string name, VRCExpressionsMenu subMenu)
+        {
+            return new VRCExpressionsMenu.Control
+            {
+                name = name,
+                type = VRCExpressionsMenu.Control.ControlType.SubMenu,
+                subMenu = subMenu,
+                parameter = new VRCExpressionsMenu.Control.Parameter { name = string.Empty },
+                subParameters = new VRCExpressionsMenu.Control.Parameter[0],
+                labels = new VRCExpressionsMenu.Control.Label[0],
+            };
+        }
+
+        private static VRCExpressionsMenu GetOrCreateMenu(string path)
+        {
+            var menu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(path);
+            if (menu == null)
+            {
+                menu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
+                AssetDatabase.CreateAsset(menu, path);
+            }
+
+            if (menu.controls == null)
+            {
+                menu.controls = new List<VRCExpressionsMenu.Control>();
+            }
+
+            return menu;
+        }
+
         private static void EnsureMenuInstaller(GameObject host)
         {
             var menu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(EntryMenuPath);
@@ -287,7 +474,8 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             var installer = host.GetComponents<ModularAvatarMenuInstaller>()
-                .FirstOrDefault(component => component.menuToAppend == menu || component.menuToAppend == null);
+                .FirstOrDefault(component => component.menuToAppend == menu
+                    || (component.menuToAppend == null && component.installTargetMenu == null));
 
             if (installer == null)
             {
@@ -300,7 +488,33 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(installer);
         }
 
-        private static void EnsureEmoteParameter(GameObject host)
+        private static void EnsureIdleMenuInstaller(GameObject host, VRCExpressionsMenu menuToAppend, VRCExpressionsMenu targetMenu)
+        {
+            var installer = host.GetComponents<ModularAvatarMenuInstaller>()
+                .FirstOrDefault(component => component.installTargetMenu == targetMenu);
+
+            if (installer == null)
+            {
+                installer = Undo.AddComponent<ModularAvatarMenuInstaller>(host);
+            }
+
+            Undo.RecordObject(installer, "Build EasyLoco Modular Avatar");
+            installer.menuToAppend = menuToAppend;
+            installer.installTargetMenu = targetMenu; // nest the idle poses under EasyLocoMain
+            EditorUtility.SetDirty(installer);
+        }
+
+        private static void RemoveIdleMenuInstaller(GameObject host, VRCExpressionsMenu targetMenu)
+        {
+            var installer = host.GetComponents<ModularAvatarMenuInstaller>()
+                .FirstOrDefault(component => component.installTargetMenu == targetMenu);
+            if (installer != null)
+            {
+                Undo.DestroyObjectImmediate(installer);
+            }
+        }
+
+        private static ModularAvatarParameters GetOrCreateMaParameters(GameObject host)
         {
             var maParameters = host.GetComponent<ModularAvatarParameters>();
             if (maParameters == null)
@@ -314,18 +528,37 @@ namespace Puetsua.VRCEasyLoco.Editor
                 maParameters.parameters = new List<ParameterConfig>();
             }
 
-            if (!maParameters.parameters.Any(parameter => parameter.nameOrPrefix == EmoteParameterName))
+            return maParameters;
+        }
+
+        private static void AddMaParameterIfMissing(ModularAvatarParameters maParameters, string name, ParameterSyncType syncType, bool saved, bool localOnly, float defaultValue)
+        {
+            if (maParameters.parameters.Any(parameter => parameter.nameOrPrefix == name))
             {
-                maParameters.parameters.Add(new ParameterConfig
-                {
-                    nameOrPrefix = EmoteParameterName,
-                    syncType = ParameterSyncType.Int,
-                    localOnly = false,
-                    saved = false,
-                    defaultValue = 0,
-                });
+                return;
             }
 
+            maParameters.parameters.Add(new ParameterConfig
+            {
+                nameOrPrefix = name,
+                syncType = syncType,
+                localOnly = localOnly,
+                saved = saved,
+                defaultValue = defaultValue,
+            });
+        }
+
+        private static void EnsureEmoteParameter(GameObject host)
+        {
+            var maParameters = GetOrCreateMaParameters(host);
+            AddMaParameterIfMissing(maParameters, EmoteParameterName, ParameterSyncType.Int, saved: false, localOnly: false, defaultValue: 0);
+            EditorUtility.SetDirty(maParameters);
+        }
+
+        private static void EnsureSyncedIntParameter(GameObject host, string name)
+        {
+            var maParameters = GetOrCreateMaParameters(host);
+            AddMaParameterIfMissing(maParameters, name, ParameterSyncType.Int, saved: true, localOnly: false, defaultValue: 0);
             EditorUtility.SetDirty(maParameters);
         }
 
@@ -396,5 +629,3 @@ namespace Puetsua.VRCEasyLoco.Editor
         }
     }
 }
-
-
