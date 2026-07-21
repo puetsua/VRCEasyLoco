@@ -23,6 +23,10 @@ Every animation ships with a built-in default, so it works out of the box.
 1. Select your avatar and choose `GameObject -> Add EasyLoco Component`.
 2. Set the animations you want in the Inspector.
 3. Press **Build Modular Avatar**.
+4. Drag the generated `GeneratedEasyLocoMA` prefab onto your avatar.
+
+The build produces a self-contained prefab — drop it anywhere under your avatar to install.
+Rebuilding overwrites that prefab in place, so avatars already using it update automatically.
 
 See [Getting Started](Documentation~/getting-started.md) for the full walkthrough.
 

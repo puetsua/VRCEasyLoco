@@ -41,11 +41,16 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        public static void Build(EasyLoco easyLoco)
+        /// <summary>
+        /// Builds the generated assets and bakes the Modular Avatar setup into a prefab, returning
+        /// that prefab's asset path. The host object exists only for the duration of the build - the
+        /// prefab is the deliverable, and the caller drops it onto whichever avatar should use it.
+        /// </summary>
+        public static string Build(EasyLoco easyLoco)
         {
             if (easyLoco == null)
             {
-                return;
+                return null;
             }
 
             var avatar = easyLoco.Avatar;
@@ -56,9 +61,23 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             var outputFolder = GetOutputFolder(avatar);
             EnsureFolder(outputFolder);
+            RemoveLegacyGeneratedObject(easyLoco);
 
-            var host = GetOrCreateGeneratedObject(easyLoco);
+            // Built detached from the hierarchy, so a build that throws part way through cannot
+            // leave a half-configured object parented to the avatar.
+            var host = new GameObject(EasyLocoConst.GeneratedObjectName);
+            try
+            {
+                return BuildHost(easyLoco, host, outputFolder);
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+        }
 
+        private static string BuildHost(EasyLoco easyLoco, GameObject host, string outputFolder)
+        {
             var stances = new List<StanceBuild>
             {
                 new StanceBuild("Stand", easyLoco.standPoses, EasyLocoConst.StandIdleTarget, EasyLocoConst.IdleStandParam),
@@ -116,9 +135,19 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
             }
 
+            var prefabPath = outputFolder + "/" + EasyLocoConst.GeneratedObjectName + ".prefab";
+            // Overwrites in place so the asset GUID survives. Avatars already holding an instance of
+            // this prefab pick the rebuild up automatically instead of losing the reference.
+            PrefabUtility.SaveAsPrefabAsset(host, prefabPath, out var saved);
+            if (!saved)
+            {
+                throw new IOException($"Failed to save the EasyLoco prefab to {prefabPath}");
+            }
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             EditorUtility.SetDirty(easyLoco);
+            return prefabPath;
         }
 
         private static void BuildIdleSelector(StanceBuild stance, string outputFolder)
@@ -552,10 +581,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             if (installer == null)
             {
-                installer = Undo.AddComponent<ModularAvatarMenuInstaller>(host);
+                installer = host.AddComponent<ModularAvatarMenuInstaller>();
             }
 
-            Undo.RecordObject(installer, "Build EasyLoco Modular Avatar");
             installer.menuToAppend = menu;
             installer.installTargetMenu = null; // append to the avatar's root expression menu
             EditorUtility.SetDirty(installer);
@@ -568,10 +596,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             if (installer == null)
             {
-                installer = Undo.AddComponent<ModularAvatarMenuInstaller>(host);
+                installer = host.AddComponent<ModularAvatarMenuInstaller>();
             }
 
-            Undo.RecordObject(installer, "Build EasyLoco Modular Avatar");
             installer.menuToAppend = menuToAppend;
             installer.installTargetMenu = targetMenu; // nest the idle poses under EasyLocoMain
             EditorUtility.SetDirty(installer);
@@ -583,7 +610,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 .FirstOrDefault(component => component.installTargetMenu == targetMenu);
             if (installer != null)
             {
-                Undo.DestroyObjectImmediate(installer);
+                Object.DestroyImmediate(installer);
             }
         }
 
@@ -592,10 +619,9 @@ namespace Puetsua.VRCEasyLoco.Editor
             var maParameters = host.GetComponent<ModularAvatarParameters>();
             if (maParameters == null)
             {
-                maParameters = Undo.AddComponent<ModularAvatarParameters>(host);
+                maParameters = host.AddComponent<ModularAvatarParameters>();
             }
 
-            Undo.RecordObject(maParameters, "Build EasyLoco Modular Avatar");
             if (maParameters.parameters == null)
             {
                 maParameters.parameters = new List<ParameterConfig>();
@@ -663,29 +689,24 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             instance.name = EasyLocoConst.SleepSensorsObjectName;
-            Undo.RegisterCreatedObjectUndo(instance, "Build EasyLoco Modular Avatar");
-            Undo.SetTransformParent(instance.transform, host.transform, "Build EasyLoco Modular Avatar");
+            instance.transform.SetParent(host.transform, false);
             instance.transform.localPosition = Vector3.zero;
             instance.transform.localRotation = Quaternion.identity;
             instance.transform.localScale = Vector3.one;
         }
 
-        private static GameObject GetOrCreateGeneratedObject(EasyLoco easyLoco)
+        // Earlier builds parented a plain GeneratedEasyLocoMA object to the avatar; the prefab
+        // supersedes it, so clear it out. An instance of the generated prefab is left alone -
+        // re-saving the prefab already updates it, and deleting the user's instance would be rude.
+        private static void RemoveLegacyGeneratedObject(EasyLoco easyLoco)
         {
-            var parent = easyLoco.transform;
-            var existing = parent.Find(EasyLocoConst.GeneratedObjectName);
-            if (existing != null)
+            var existing = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
+            if (existing == null || PrefabUtility.IsPartOfAnyPrefab(existing.gameObject))
             {
-                return existing.gameObject;
+                return;
             }
 
-            var generated = new GameObject(EasyLocoConst.GeneratedObjectName);
-            Undo.RegisterCreatedObjectUndo(generated, "Build EasyLoco Modular Avatar");
-            Undo.SetTransformParent(generated.transform, parent, "Build EasyLoco Modular Avatar");
-            generated.transform.localPosition = Vector3.zero;
-            generated.transform.localRotation = Quaternion.identity;
-            generated.transform.localScale = Vector3.one;
-            return generated;
+            Undo.DestroyObjectImmediate(existing.gameObject);
         }
 
         private static void EnsureMergeAnimator(GameObject gameObject, VRCAvatarDescriptor.AnimLayerType layerType, RuntimeAnimatorController controller)
@@ -695,10 +716,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             if (mergeAnimator == null)
             {
-                mergeAnimator = Undo.AddComponent<ModularAvatarMergeAnimator>(gameObject);
+                mergeAnimator = gameObject.AddComponent<ModularAvatarMergeAnimator>();
             }
 
-            Undo.RecordObject(mergeAnimator, "Build EasyLoco Modular Avatar");
             mergeAnimator.animator = controller;
             mergeAnimator.layerType = layerType;
             mergeAnimator.mergeAnimatorMode = MergeAnimatorMode.Replace;

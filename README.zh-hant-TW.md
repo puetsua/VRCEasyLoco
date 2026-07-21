@@ -21,6 +21,10 @@
 1. 選擇你的 avatar，點選 `GameObject -> Add EasyLoco Component`。
 2. 在 Inspector 設定想要的動畫。
 3. 按下 **Build Modular Avatar**。
+4. 將產生的 `GeneratedEasyLocoMA` prefab 拖曳到你的 avatar 上。
+
+建置會產生一個獨立的 prefab，放到 avatar 底下任何位置即可安裝。重新建置會直接覆寫同一個 prefab，
+因此已經使用它的 avatar 會自動更新，不需要重新拖曳。
 
 完整說明請見 [Getting Started](Documentation~/getting-started.md)。
 
