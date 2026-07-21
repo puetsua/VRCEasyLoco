@@ -35,10 +35,13 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorGUIUtility.PingObject(easyLoco);
         }
 
+        // Validation functions must be parameterless for Unity to bind them; a MenuCommand
+        // parameter here is silently ignored, which left the item permanently enabled. Selection
+        // reflects the right-clicked/target object during validation.
         [MenuItem(MenuPath, true)]
-        private static bool CanAddEasyLocoComponent(MenuCommand command)
+        private static bool CanAddEasyLocoComponent()
         {
-            var gameObject = GetTargetGameObject(command);
+            var gameObject = Selection.activeGameObject;
             return gameObject != null &&
                    gameObject.GetComponent<VRCAvatarDescriptor>() != null &&
                    gameObject.GetComponent<EasyLoco>() == null;

@@ -1,8 +1,8 @@
 {
   "name": "vrchat.puetsuaworkshop.easyloco",
   "displayName": "EasyLoco",
-  "version": "0.1.0",
-  "description": "A Unity editor tool for inspecting and editing VRChat avatar locomotion more safely.",
+  "version": "0.2.0",
+  "description": "Customise VRChat avatar locomotion - idle poses, sleeping, and AFK animations - installed through Modular Avatar.",
   "gitDependencies": {},
   "dependencies": {},
   "vpmDependencies": {

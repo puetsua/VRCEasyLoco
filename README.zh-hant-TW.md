@@ -3,6 +3,27 @@
 * [English](README.md)
 * [正體中文](README.zh-hant-TW.md)
 
+自訂 VRChat avatar 的移動動作 —— 待機姿勢、睡覺、AFK —— 不需要手動編輯 animator controller。
+透過 Modular Avatar 安裝。
+
+## 功能
+
+* **待機姿勢** —— 更換站立、蹲下、趴下的待機動畫，並可登錄多組姿勢，在遊戲中從 expression menu
+  隨時切換。
+* **睡覺** —— 趴下時可切換睡覺姿勢。依頭部方向在三個動畫之間混合（面朝上、面朝下、側躺），
+  方向由實際的頭部追蹤偵測。睡覺時仍可移動，因此還是能爬行。站起來時會自動解除。
+* **AFK** —— 依姿勢分開的 AFK 動畫，站立、蹲下、趴下各自有進入 / 循環 / 結束三段動畫。
+
+每個動畫都內建預設值，安裝後即可直接使用。
+
+## 使用方式
+
+1. 選擇你的 avatar，點選 `GameObject -> Add EasyLoco Component`。
+2. 在 Inspector 設定想要的動畫。
+3. 按下 **Build Modular Avatar**。
+
+完整說明請見 [Getting Started](Documentation~/getting-started.md)。
+
 ## 安裝方式
 
 ### VCC

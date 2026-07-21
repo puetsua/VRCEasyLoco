@@ -78,6 +78,10 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
             }
 
+            // Sleep clips live at the leaves of the nested sleeping trees. Registering them here
+            // lets ReplaceMotion's existing clone path rebuild DefaultProneSleeping for this avatar.
+            AddSleepReplacements(baseReplacements, easyLoco.sleep);
+
             // Always generate copies of both templates so the avatar merges the generated
             // controllers, never the shared template assets (which a user could edit by accident).
             var baseController = (AnimatorController)BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements);
@@ -91,11 +95,15 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(baseController);
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController);
 
-            var actionController = BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", CreateActionReplacements(easyLoco));
+            var actionController = (AnimatorController)BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", new Dictionary<string, Motion>());
+            ApplyAfkOverrides(actionController, easyLoco);
+            EditorUtility.SetDirty(actionController);
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Action, actionController);
 
             // The Action layer is driven by VRCEmote, exposed through the EasyLoco expression menu.
             EnsureEmoteParameter(host);
+            EnsureSleepModeParameter(host);
+            EnsureSleepSensors(host);
             EnsureMenuInstaller(host);
 
             // Idle-pose selection menu + its synced parameters (only for stances with >1 pose).
@@ -190,23 +198,88 @@ namespace Puetsua.VRCEasyLoco.Editor
             return controller;
         }
 
-        private static IReadOnlyDictionary<string, Motion> CreateActionReplacements(EasyLoco easyLoco)
+        // A clip equal to the built-in is skipped: registering it would force a needless clone of
+        // the whole sleeping tree for an avatar that never customised anything.
+        private static void AddSleepReplacements(IDictionary<string, Motion> replacements, EasyLoco.SleepSet sleep)
         {
-            var replacements = new Dictionary<string, Motion>();
-            if (!easyLoco.useCustomAction)
+            if (sleep == null)
             {
-                return replacements;
+                return;
             }
 
-            AddReplacement(replacements, "proxy_afk", easyLoco.actionAfk);
-            return replacements;
+            AddSleepReplacement(replacements, EasyLocoConst.SleepUpTarget, EasyLocoConst.SleepUpClip, sleep.up);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepDownTarget, EasyLocoConst.SleepDownClip, sleep.down);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepSideTarget, EasyLocoConst.SleepSideClip, sleep.side);
         }
 
-        private static void AddReplacement(IDictionary<string, Motion> replacements, string targetMotionName, AnimationClip animation)
+        private static void AddSleepReplacement(IDictionary<string, Motion> replacements, string targetName, string builtInPath, AnimationClip clip)
         {
-            if (animation != null)
+            if (clip == null)
             {
-                replacements[targetMotionName] = animation;
+                return;
+            }
+
+            var builtIn = AssetDatabase.LoadAssetAtPath<AnimationClip>(builtInPath);
+            if (clip == builtIn)
+            {
+                return;
+            }
+
+            replacements[targetName] = clip;
+        }
+
+        private static void ApplyAfkOverrides(AnimatorController controller, EasyLoco easyLoco)
+        {
+            var overrides = new Dictionary<string, AnimationClip>();
+            AddAfkOverrides(overrides, "Stand", easyLoco.standAfk);
+            AddAfkOverrides(overrides, "Crouch", easyLoco.crouchAfk);
+            AddAfkOverrides(overrides, "Prone", easyLoco.proneAfk);
+            if (overrides.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var layer in controller.layers)
+            {
+                SetStateMotionsByName(layer.stateMachine, overrides);
+            }
+        }
+
+        private static void AddAfkOverrides(IDictionary<string, AnimationClip> map, string stance, EasyLoco.AfkSet set)
+        {
+            if (set == null)
+            {
+                return;
+            }
+
+            AddClipOverride(map, EasyLocoConst.AfkStatePrefix + stance + " Entering", set.entering);
+            AddClipOverride(map, EasyLocoConst.AfkStatePrefix + stance + " Looping", set.looping);
+            AddClipOverride(map, EasyLocoConst.AfkStatePrefix + stance + " Exiting", set.exiting);
+        }
+
+        private static void AddClipOverride(IDictionary<string, AnimationClip> map, string stateName, AnimationClip clip)
+        {
+            if (clip != null)
+            {
+                map[stateName] = clip;
+            }
+        }
+
+        private static void SetStateMotionsByName(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, AnimationClip> overrides)
+        {
+            foreach (var childState in stateMachine.states)
+            {
+                var state = childState.state;
+                if (overrides.TryGetValue(state.name, out var clip) && state.motion != clip)
+                {
+                    state.motion = clip;
+                    EditorUtility.SetDirty(state);
+                }
+            }
+
+            foreach (var childStateMachine in stateMachine.stateMachines)
+            {
+                SetStateMotionsByName(childStateMachine.stateMachine, overrides);
             }
         }
 
@@ -555,11 +628,46 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(maParameters);
         }
 
+        // Sleep mode is synced so remote viewers see the sleeping pose, but deliberately not saved:
+        // an avatar should never load back in already asleep.
+        private static void EnsureSleepModeParameter(GameObject host)
+        {
+            var maParameters = GetOrCreateMaParameters(host);
+            AddMaParameterIfMissing(maParameters, EasyLocoConst.SleepModeParam, ParameterSyncType.Bool, saved: false, localOnly: false, defaultValue: 0);
+            EditorUtility.SetDirty(maParameters);
+        }
+
         private static void EnsureSyncedIntParameter(GameObject host, string name)
         {
             var maParameters = GetOrCreateMaParameters(host);
             AddMaParameterIfMissing(maParameters, name, ParameterSyncType.Int, saved: true, localOnly: false, defaultValue: 0);
             EditorUtility.SetDirty(maParameters);
+        }
+
+        // The sleep sensors are an authored prefab rather than something we build from code, so the
+        // radii and offsets stay hand-tunable. Kept as a live prefab instance so package-side
+        // tweaks reach avatars that were built earlier.
+        private static void EnsureSleepSensors(GameObject host)
+        {
+            var existing = host.transform.Find(EasyLocoConst.SleepSensorsObjectName);
+            if (existing != null)
+            {
+                return;
+            }
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EasyLocoConst.SleepSensorsPrefabPath);
+            if (prefab == null)
+            {
+                throw new FileNotFoundException("EasyLoco sleep sensor prefab was not found.", EasyLocoConst.SleepSensorsPrefabPath);
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            instance.name = EasyLocoConst.SleepSensorsObjectName;
+            Undo.RegisterCreatedObjectUndo(instance, "Build EasyLoco Modular Avatar");
+            Undo.SetTransformParent(instance.transform, host.transform, "Build EasyLoco Modular Avatar");
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
         }
 
         private static GameObject GetOrCreateGeneratedObject(EasyLoco easyLoco)

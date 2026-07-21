@@ -9,7 +9,6 @@ namespace Puetsua.VRCEasyLoco.Editor
         private VRCAvatarDescriptor avatar;
         private Vector2 scrollPosition;
 
-        [MenuItem(EasyLocoConst.MenuPath, priority = EasyLocoConst.MenuPriority)]
         public static void Open()
         {
             var window = GetWindow<EasyLocoWindow>(EasyLocoConst.DisplayName);

@@ -24,3 +24,13 @@ MonoBehaviour:
     subMenu: {fileID: 11400000, guid: c7e78af7057ff1e45b6b69fbbca38264, type: 2}
     subParameters: []
     labels: []
+  - name: Sleep
+    icon: {fileID: 0}
+    type: 102
+    parameter:
+      name: EasyLocoSleepMode
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
