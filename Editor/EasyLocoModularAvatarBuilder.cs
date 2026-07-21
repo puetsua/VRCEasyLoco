@@ -42,9 +42,9 @@ namespace Puetsua.VRCEasyLoco.Editor
         }
 
         /// <summary>
-        /// Builds the generated assets and bakes the Modular Avatar setup into a prefab, returning
-        /// that prefab's asset path. The host object exists only for the duration of the build - the
-        /// prefab is the deliverable, and the caller drops it onto whichever avatar should use it.
+        /// Builds the generated assets, bakes the Modular Avatar setup into a prefab, and installs an
+        /// instance of that prefab onto the avatar. Returns the prefab's asset path. The prefab is
+        /// also reusable by hand - dropping it under another avatar installs the same setup there.
         /// </summary>
         public static string Build(EasyLoco easyLoco)
         {
@@ -61,19 +61,53 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             var outputFolder = GetOutputFolder(avatar);
             EnsureFolder(outputFolder);
-            RemoveLegacyGeneratedObject(easyLoco);
 
             // Built detached from the hierarchy, so a build that throws part way through cannot
             // leave a half-configured object parented to the avatar.
+            string prefabPath;
             var host = new GameObject(EasyLocoConst.GeneratedObjectName);
             try
             {
-                return BuildHost(easyLoco, host, outputFolder);
+                prefabPath = BuildHost(easyLoco, host, outputFolder);
             }
             finally
             {
                 Object.DestroyImmediate(host);
             }
+
+            InstallPrefabInstance(easyLoco, prefabPath);
+            return prefabPath;
+        }
+
+        // Re-instancing on every build would discard the user's placement of an existing instance for
+        // no reason: saving the prefab already updated it in place. Anything else living under the
+        // expected name - a plain object from an older build, or an instance built for a different
+        // avatar - is replaced.
+        private static void InstallPrefabInstance(EasyLoco easyLoco, string prefabPath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
+            {
+                throw new FileNotFoundException("EasyLoco prefab was not found after building.", prefabPath);
+            }
+
+            var existing = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
+            if (existing != null)
+            {
+                if (PrefabUtility.GetCorrespondingObjectFromSource(existing.gameObject) == prefab)
+                {
+                    return;
+                }
+
+                Undo.DestroyObjectImmediate(existing.gameObject);
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, easyLoco.transform);
+            instance.name = EasyLocoConst.GeneratedObjectName;
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+            Undo.RegisterCreatedObjectUndo(instance, "Build EasyLoco Modular Avatar");
         }
 
         private static string BuildHost(EasyLoco easyLoco, GameObject host, string outputFolder)
@@ -695,19 +729,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             instance.transform.localScale = Vector3.one;
         }
 
-        // Earlier builds parented a plain GeneratedEasyLocoMA object to the avatar; the prefab
-        // supersedes it, so clear it out. An instance of the generated prefab is left alone -
-        // re-saving the prefab already updates it, and deleting the user's instance would be rude.
-        private static void RemoveLegacyGeneratedObject(EasyLoco easyLoco)
-        {
-            var existing = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
-            if (existing == null || PrefabUtility.IsPartOfAnyPrefab(existing.gameObject))
-            {
-                return;
-            }
-
-            Undo.DestroyObjectImmediate(existing.gameObject);
-        }
 
         private static void EnsureMergeAnimator(GameObject gameObject, VRCAvatarDescriptor.AnimLayerType layerType, RuntimeAnimatorController controller)
         {

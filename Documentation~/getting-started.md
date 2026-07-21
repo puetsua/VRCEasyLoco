@@ -10,27 +10,22 @@ and AFK animations, installed through Modular Avatar.
 3. Configure the animations you want (see below). Every field is prefilled with a built-in default,
    so you can skip straight to step 4.
 4. Press **Build Modular Avatar**.
-5. Drag the generated `GeneratedEasyLocoMA` prefab onto your avatar.
 
 Building writes the generated controllers, menus, and a `GeneratedEasyLocoMA.prefab` to
-`Assets/PuetsuaWorkshop/Generated/EasyLoco/<avatar name>/`, then selects the prefab for you. That
-prefab holds every Modular Avatar component EasyLoco needs — dropping it anywhere under your avatar
-installs it.
+`Assets/PuetsuaWorkshop/Generated/EasyLoco/<avatar name>/`, then installs an instance of that prefab
+onto your avatar. The prefab holds every Modular Avatar component EasyLoco needs.
 
-The `EasyLoco` component itself is only the authoring surface. It is not needed at upload time, and
-nothing is added to your avatar until you drag the prefab in.
-
-Rebuilding is safe — press the button again after any change. The prefab is overwritten in place, so
-avatars already holding an instance pick up the rebuild automatically without being re-dragged.
-Nothing outside the generated folder is modified, and your avatar's existing animator layers are
-left untouched.
+Rebuilding is safe — press the button again after any change. The prefab is overwritten in place and
+your existing instance updates with it, so the build never has to touch your hierarchy twice.
+Nothing outside the generated folder and the `GeneratedEasyLocoMA` object is modified, and your
+avatar's existing animator layers are left untouched.
 
 ### Reusing one build across similar avatars
 
-The prefab references the controllers generated for the avatar it was built from, so those clips
-travel with it. Dropping it onto a different avatar works and is a reasonable way to share one setup
-across variants of the same model — just remember that changing the animations means rebuilding from
-the original avatar, not the copy.
+The prefab is self-contained, so you can also drag it onto a different avatar by hand — a good way
+to share one setup across variants of the same model. It references the controllers generated for
+the avatar it was built from, so those clips travel with it; changing the animations means
+rebuilding from the original avatar, not the copy.
 
 ## Idle Animations
 

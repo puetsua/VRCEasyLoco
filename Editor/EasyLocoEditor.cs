@@ -254,18 +254,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             try
             {
                 var prefabPath = EasyLocoModularAvatarBuilder.Build(easyLoco);
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-                if (prefab != null)
-                {
-                    // Ping it so the user can see what to drag onto their avatar.
-                    EditorGUIUtility.PingObject(prefab);
-                    Selection.activeObject = prefab;
-                }
-
                 EditorUtility.DisplayDialog(EasyLocoConst.DisplayName,
-                    "Built the EasyLoco prefab:\n\n" + prefabPath +
-                    "\n\nDrag it onto your avatar to install. Rebuilding updates the prefab in place, " +
-                    "so avatars already using it pick the change up automatically.", "OK");
+                    "Installed EasyLoco on the avatar.\n\nPrefab:\n" + prefabPath +
+                    "\n\nRebuilding updates the prefab in place, so avatars already using it pick the " +
+                    "change up automatically. You can also drop the prefab onto a similar avatar to " +
+                    "reuse this build.", "OK");
             }
             catch (System.Exception exception)
             {
