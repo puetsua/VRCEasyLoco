@@ -23,9 +23,11 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string SleepModeParam = "EasyLocoSleepMode";
 
         // Drives the FeetLock layer in the Base controller, locking both feet to the animated pose
-        // (VRC tracking control) while lying down. Set from the Feet Lock toggle in the Sleep
-        // sub-menu; the layer releases and a parameter driver clears this back to false once Upright
-        // passes 0.43, so standing up unlocks the feet and turns the toggle off.
+        // (VRC tracking control). Set from the Feet Lock toggle in the Sleep sub-menu; it only
+        // engages while [[SleepModeParam]] is on and Upright is below 0.43 (lying down asleep). The
+        // layer releases when sleep ends, when the toggle is cleared, or when Upright passes 0.43 -
+        // and the release path's parameter driver clears this back to false, so the toggle never
+        // sticks once you are upright or awake.
         public const string FeetLockParam = "EasyLocoFeetLock";
 
         // Idle-pose selector parameters (one Int per stance). Toggle menu items and the nested

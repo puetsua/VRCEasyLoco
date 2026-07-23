@@ -41,8 +41,9 @@ The `EasyLoco -> Sleep` sub-menu holds two toggles:
 
 - **Sleep Loco** — while prone, plays a sleeping pose instead of the normal prone idle. Locomotion
   still works while asleep, so you can crawl without leaving the pose.
-- **Feet Lock** — locks both feet to the animated pose (via VRC tracking control) so your real,
-  standing legs don't drag the pose around while you lie down.
+- **Feet Lock** — while asleep, locks both feet to the animated pose (via VRC tracking control) so
+  your real, standing legs don't drag the pose around. It only engages while Sleep Loco is on; it
+  has no effect on its own.
 
 Three clips blend by head orientation:
 
