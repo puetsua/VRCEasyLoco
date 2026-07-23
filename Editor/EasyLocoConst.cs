@@ -18,9 +18,15 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string SleepSensorsObjectName = "SleepLoco";
 
         // Drives the Sleeping state inside the Base controller's Prone sub-state machine. Set from
-        // the Sleep toggle on the main menu; the state also releases on Upright, so standing up
-        // leaves sleep even while this is still true.
+        // the Sleep Loco toggle in the Sleep sub-menu; the state also releases on Upright, so
+        // standing up leaves sleep even while this is still true.
         public const string SleepModeParam = "EasyLocoSleepMode";
+
+        // Drives the FeetLock layer in the Base controller, locking both feet to the animated pose
+        // (VRC tracking control) while lying down. Set from the Feet Lock toggle in the Sleep
+        // sub-menu; the layer releases and a parameter driver clears this back to false once Upright
+        // passes 0.43, so standing up unlocks the feet and turns the toggle off.
+        public const string FeetLockParam = "EasyLocoFeetLock";
 
         // Idle-pose selector parameters (one Int per stance). Toggle menu items and the nested
         // idle blend trees both reference these by name.

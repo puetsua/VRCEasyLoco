@@ -156,6 +156,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             // The Action layer is driven by VRCEmote, exposed through the EasyLoco expression menu.
             EnsureEmoteParameter(host);
             EnsureSleepModeParameter(host);
+            EnsureFeetLockParameter(host);
             EnsureSleepSensors(host);
             EnsureMenuInstaller(host);
 
@@ -694,6 +695,16 @@ namespace Puetsua.VRCEasyLoco.Editor
         {
             var maParameters = GetOrCreateMaParameters(host);
             AddMaParameterIfMissing(maParameters, EasyLocoConst.SleepModeParam, ParameterSyncType.Bool, saved: false, localOnly: false, defaultValue: 0);
+            EditorUtility.SetDirty(maParameters);
+        }
+
+        // Feet lock is synced so remote viewers see the locked feet, but not saved: the FeetLock
+        // layer's parameter driver clears it whenever the avatar is upright, so it should always load
+        // back in the unlocked (standing) state.
+        private static void EnsureFeetLockParameter(GameObject host)
+        {
+            var maParameters = GetOrCreateMaParameters(host);
+            AddMaParameterIfMissing(maParameters, EasyLocoConst.FeetLockParam, ParameterSyncType.Bool, saved: false, localOnly: false, defaultValue: 0);
             EditorUtility.SetDirty(maParameters);
         }
 

@@ -10,9 +10,11 @@ animator controllers. Installs through Modular Avatar.
 
 * **Idle poses** — swap the standing, crouching, and prone idle animations, and register extra
   poses that you can switch between from the expression menu at runtime.
-* **Sleeping** — toggle a sleeping pose while prone. Three clips blend by head orientation (facing
-  up, facing down, on your side), detected from real head tracking. Locomotion keeps working, so
-  you can still crawl. Releases automatically when you stand up.
+* **Sleeping** — a Sleep sub-menu with two toggles: *Sleep Loco* plays a sleeping pose while prone
+  (three clips blend by head orientation — facing up, facing down, on your side — detected from real
+  head tracking, and locomotion keeps working so you can still crawl), and *Feet Lock* pins both
+  feet to the pose so your standing legs don't drag it around. Both release automatically when you
+  stand up.
 * **AFK** — per-posture AFK animations, with separate entering / looping / exiting clips for
   standing, crouching, and prone.
 

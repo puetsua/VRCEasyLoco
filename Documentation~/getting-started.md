@@ -37,8 +37,12 @@ stance with only one pose gets no menu entry — the single clip is simply used 
 
 ## Sleep Animations
 
-Toggling `EasyLoco -> Sleep` while prone plays a sleeping pose instead of the normal prone idle.
-Locomotion still works while asleep, so you can crawl without leaving the pose.
+The `EasyLoco -> Sleep` sub-menu holds two toggles:
+
+- **Sleep Loco** — while prone, plays a sleeping pose instead of the normal prone idle. Locomotion
+  still works while asleep, so you can crawl without leaving the pose.
+- **Feet Lock** — locks both feet to the animated pose (via VRC tracking control) so your real,
+  standing legs don't drag the pose around while you lie down.
 
 Three clips blend by head orientation:
 
@@ -53,8 +57,10 @@ bone against a world-up reference. Because it reads real head tracking, blending
 behaves correctly in VR — in desktop mode the head is driven by the animation itself, so the
 detected orientation will not respond to your input.
 
-Sleep mode releases automatically when you stand up, even if the toggle is still on. It is synced
-so remote players see the pose, but not saved — you never rejoin a world already asleep.
+Both toggles release automatically when you stand up (`Upright` passes 0.43), even if the toggle is
+still on — and Feet Lock also drives its own toggle back off so it never sticks while upright. They
+are synced so remote players see the pose and the locked feet, but not saved — you never rejoin a
+world already asleep or with your feet locked.
 
 ## AFK Animations
 
