@@ -14,7 +14,7 @@ There is no CLI build or test suite yet. Unity imports and compiles the package 
 
 Validate changes by opening the parent project in Unity 2022.3.22f1 and using:
 
-- Tools -> EasyLoco
+- `GameObject -> Add EasyLoco Component` on an avatar, then the EasyLoco inspector's **Build Modular Avatar** button
 - The sample avatars in `Assets/main.unity`
 
 Do not edit Unity-generated root `.csproj` or `.sln` files.
@@ -33,7 +33,7 @@ EasyLoco should start conservative:
 ## Conventions
 
 - Namespace: `Puetsua.VRCEasyLoco.Editor`
-- Editor entry point: `Tools -> EasyLoco`
+- Editor entry point: the `EasyLoco` component + its custom inspector (added via `GameObject -> Add EasyLoco Component`)
 - Code lives under `Editor/` until runtime components are truly required
 - Constants live in `EasyLocoConst.cs`; do not duplicate package names or menu labels
 - Localized UI text should be centralized before the UI grows beyond this initial scaffold
