@@ -47,6 +47,18 @@ namespace Puetsua.VRCEasyLoco.Editor
             serializedObject.Update();
 
             var easyLoco = (EasyLoco)target;
+
+            using (new EditorGUI.DisabledScope(easyLoco.Avatar == null))
+            {
+                if (GUILayout.Button("Build Modular Avatar"))
+                {
+                    serializedObject.ApplyModifiedProperties();
+                    Build(easyLoco);
+                    serializedObject.Update();
+                }
+            }
+
+            EditorGUILayout.Space();
             using (new EditorGUI.DisabledScope(true))
             {
                 EditorGUILayout.ObjectField("Avatar", easyLoco.Avatar, typeof(VRC.SDK3.Avatars.Components.VRCAvatarDescriptor), true);
@@ -84,17 +96,6 @@ namespace Puetsua.VRCEasyLoco.Editor
                 DrawAfkSet("Stand AFK", standAfk);
                 DrawAfkSet("Crouch AFK", crouchAfk);
                 DrawAfkSet("Prone AFK", proneAfk);
-            }
-
-            EditorGUILayout.Space();
-            using (new EditorGUI.DisabledScope(easyLoco.Avatar == null))
-            {
-                if (GUILayout.Button("Build Modular Avatar"))
-                {
-                    serializedObject.ApplyModifiedProperties();
-                    Build(easyLoco);
-                    serializedObject.Update();
-                }
             }
 
             serializedObject.ApplyModifiedProperties();
@@ -253,12 +254,9 @@ namespace Puetsua.VRCEasyLoco.Editor
         {
             try
             {
-                var prefabPath = EasyLocoModularAvatarBuilder.Build(easyLoco);
+                EasyLocoModularAvatarBuilder.Build(easyLoco);
                 EditorUtility.DisplayDialog(EasyLocoConst.DisplayName,
-                    "Installed EasyLoco on the avatar.\n\nPrefab:\n" + prefabPath +
-                    "\n\nRebuilding updates the prefab in place, so avatars already using it pick the " +
-                    "change up automatically. You can also drop the prefab onto a similar avatar to " +
-                    "reuse this build.", "OK");
+                    "Build succeeded — prefab added to the avatar.", "OK");
             }
             catch (System.Exception exception)
             {
