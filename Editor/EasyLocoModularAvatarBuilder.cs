@@ -142,7 +142,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 if (stance.HasMenu)
                 {
-                    EnsureIntParameter(baseController, stance.ParamName);
+                    EnsureFloatParameter(baseController, stance.ParamName);
                 }
             }
             EditorUtility.SetDirty(baseController);
@@ -166,7 +166,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 if (stance.HasMenu)
                 {
-                    EnsureSyncedIntParameter(host, stance.ParamName);
+                    EnsureSyncedFloatParameter(host, stance.ParamName);
                 }
             }
 
@@ -347,14 +347,18 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        private static void EnsureIntParameter(AnimatorController controller, string name)
+        // Must be Float, not Int: the idle selectors are Simple1D blend trees, and Unity blend trees
+        // read their blend parameter as a float. An Int parameter's float value is always 0
+        // (int/float storage is separate), so an Int here would freeze every selector on child 0 and
+        // the menu toggles would appear to do nothing.
+        private static void EnsureFloatParameter(AnimatorController controller, string name)
         {
             if (controller.parameters.Any(parameter => parameter.name == name))
             {
                 return;
             }
 
-            controller.AddParameter(name, AnimatorControllerParameterType.Int);
+            controller.AddParameter(name, AnimatorControllerParameterType.Float);
         }
 
         private static void ReplaceMotions(AnimatorController controller, IReadOnlyDictionary<string, Motion> replacements, string outputFolder)
@@ -708,10 +712,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(maParameters);
         }
 
-        private static void EnsureSyncedIntParameter(GameObject host, string name)
+        // Float to match the animator parameter the idle blend trees read (see EnsureFloatParameter).
+        private static void EnsureSyncedFloatParameter(GameObject host, string name)
         {
             var maParameters = GetOrCreateMaParameters(host);
-            AddMaParameterIfMissing(maParameters, name, ParameterSyncType.Int, saved: true, localOnly: false, defaultValue: 0);
+            AddMaParameterIfMissing(maParameters, name, ParameterSyncType.Float, saved: true, localOnly: false, defaultValue: 0);
             EditorUtility.SetDirty(maParameters);
         }
 
