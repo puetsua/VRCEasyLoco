@@ -6,7 +6,7 @@ AnimationClip:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: SleepRight
+  m_Name: SleepSide
   serializedVersion: 7
   m_Legacy: 0
   m_Compressed: 0
@@ -29126,7 +29126,7 @@ AnimationClip:
     m_AdditiveReferencePoseTime: 0
     m_StartTime: 0
     m_StopTime: 0.041666668
-    m_OrientationOffsetY: -90
+    m_OrientationOffsetY: 0
     m_Level: 0
     m_CycleOffset: 0
     m_HasAdditiveReferencePose: 0
@@ -29139,7 +29139,7 @@ AnimationClip:
     m_KeepOriginalPositionY: 1
     m_KeepOriginalPositionXZ: 1
     m_HeightFromFeet: 0
-    m_Mirror: 1
+    m_Mirror: 0
   m_EditorCurves:
   - serializedVersion: 2
     curve:

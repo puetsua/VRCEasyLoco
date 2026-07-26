@@ -56,7 +56,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             var avatar = easyLoco.Avatar;
             if (avatar == null)
             {
-                throw new System.InvalidOperationException("EasyLoco must be placed on an avatar with a VRCAvatarDescriptor.");
+                throw new System.InvalidOperationException("EasyLoco must be on the same GameObject as the VRCAvatarDescriptor.");
             }
 
             var outputFolder = GetOutputFolder(avatar);
@@ -131,8 +131,9 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
             }
 
-            // Sleep clips live at the leaves of the nested sleeping trees. Registering them here
-            // lets ReplaceMotion's existing clone path rebuild DefaultProneSleeping for this avatar.
+            // Sleep clips live at the leaves of the DefaultSleepingFacing* trees, one per sleeping
+            // state. Registering them here lets ReplaceMotion's existing clone path rebuild those
+            // trees for this avatar.
             AddSleepReplacements(baseReplacements, easyLoco.sleep);
 
             // Always generate copies of both templates so the avatar merges the generated
@@ -376,18 +377,23 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             var controllerPath = AssetDatabase.GetAssetPath(controller);
+            var clones = new Dictionary<BlendTree, BlendTree>();
             foreach (var layer in controller.layers)
             {
-                ReplaceMotions(layer.stateMachine, replacements, outputFolder, controllerPath);
+                ReplaceMotions(layer.stateMachine, replacements, outputFolder, controllerPath, clones);
             }
         }
 
-        private static void ReplaceMotions(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath)
+        // The clone cache spans the whole controller: one shared tree can be the motion of several
+        // states (both sleeping branches point at DefaultSleepingFacingDown). Cloning it per state
+        // would have each clone delete the asset the previous state was pointed at, leaving that
+        // state with a missing motion.
+        private static void ReplaceMotions(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
         {
             foreach (var childState in stateMachine.states)
             {
                 var state = childState.state;
-                var replaced = ReplaceMotion(state.motion, replacements, outputFolder, controllerPath);
+                var replaced = ReplaceMotion(state.motion, replacements, outputFolder, controllerPath, clones);
                 if (replaced != state.motion)
                 {
                     state.motion = replaced;
@@ -397,11 +403,11 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             foreach (var childStateMachine in stateMachine.stateMachines)
             {
-                ReplaceMotions(childStateMachine.stateMachine, replacements, outputFolder, controllerPath);
+                ReplaceMotions(childStateMachine.stateMachine, replacements, outputFolder, controllerPath, clones);
             }
         }
 
-        private static Motion ReplaceMotion(Motion motion, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath)
+        private static Motion ReplaceMotion(Motion motion, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
         {
             if (motion == null)
             {
@@ -422,18 +428,24 @@ namespace Puetsua.VRCEasyLoco.Editor
                 var isSharedAsset = !string.IsNullOrEmpty(motionPath) && motionPath != controllerPath;
                 if (isSharedAsset)
                 {
-                    return CloneBlendTree(blendTree, replacements, outputFolder);
+                    if (!clones.TryGetValue(blendTree, out var clone))
+                    {
+                        clone = CloneBlendTree(blendTree, replacements, outputFolder);
+                        clones.Add(blendTree, clone);
+                    }
+
+                    return clone;
                 }
 
                 // Blend trees embedded inside the copied controller are owned by it and safe to edit.
-                ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath);
+                ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath, clones);
                 return blendTree;
             }
 
             return replacements.TryGetValue(motion.name, out var replacement) ? replacement : motion;
         }
 
-        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath)
+        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
         {
             var children = blendTree.children;
             var changed = false;
@@ -441,7 +453,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             for (var i = 0; i < children.Length; i++)
             {
                 var original = children[i].motion;
-                var replaced = ReplaceMotion(original, replacements, outputFolder, controllerPath);
+                var replaced = ReplaceMotion(original, replacements, outputFolder, controllerPath, clones);
                 if (replaced != original)
                 {
                     children[i].motion = replaced;

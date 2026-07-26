@@ -85,13 +85,12 @@ namespace Puetsua.VRCEasyLoco
         public AfkSet crouchAfk = new AfkSet();
         public AfkSet proneAfk = new AfkSet();
 
-        public VRCAvatarDescriptor Avatar
-        {
-            get
-            {
-                var descriptors = GetComponentsInParent<VRCAvatarDescriptor>(true);
-                return descriptors.Length > 0 ? descriptors[0] : null;
-            }
-        }
+        /// <summary>
+        /// The avatar this component configures, or null when it is not on an avatar. Deliberately
+        /// the same GameObject only - not a search up the hierarchy: the "Add EasyLoco Component"
+        /// menu only ever puts it on the descriptor, and with nested avatars a parent search would
+        /// silently bind to whichever descriptor happened to be closest above it.
+        /// </summary>
+        public VRCAvatarDescriptor Avatar => GetComponent<VRCAvatarDescriptor>();
     }
 }

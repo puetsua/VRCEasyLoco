@@ -7,6 +7,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         public const string GeneratedObjectName = "GeneratedEasyLocoMA";
 
+        // Namespace for EditorPrefs keys holding per-user inspector state (never project data).
+        public const string EditorPrefsPrefix = PackageName + ".";
+
         public const string PackageRoot = "Packages/" + PackageName;
         public const string AnimationsFolder = PackageRoot + "/Animations";
         public const string IdleAnimationsFolder = AnimationsFolder + "/Idle";
@@ -54,14 +57,15 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string ProneDefaultClip = IdleAnimationsFolder + "/IdleProneDefault.anim";
         public const string ProneLyingDownClip = IdleAnimationsFolder + "/IdleProneLyingDown.anim";
 
-        // The sleep pose clips sitting at the leaves of DefaultProneSleeping -> DefaultSleeping ->
-        // DefaultSleepingFacing{Up,Down}. Swapping these by name lets the existing blend-tree clone
-        // path rebuild the whole nested tree with the user's clips.
+        // The sleep pose clips sitting at the leaves of the DefaultSleepingFacing{Up,Down} trees.
+        // Each is the motion of one Sleeping state in the Base controller, and the states switch on
+        // the facing parameters. Swapping these clips by name lets the existing blend-tree clone
+        // path rebuild those trees with the user's clips.
         //
-        // The feet-locked branch (DefaultProneSleeping*FeetLock*, played while the Feet Lock toggle
-        // holds both feet on the floor) is a parallel tree that reuses the same facing-up/down clips
-        // but has its own on-side poses, hence the extra targets. Every clip file is named after its
-        // target, so the built-in paths are derived from these names.
+        // The feet-locked branch (DefaultSleepingFacing*FeetLock, played while the Feet Lock toggle
+        // holds both feet on the floor) is a parallel pair of trees that reuses the same
+        // facing-up/down clips but has its own on-side poses, hence the extra targets. Every clip
+        // file is named after its target, so the built-in paths are derived from these names.
         public const string SleepUpTarget = "SleepUp";
         public const string SleepDownTarget = "SleepDown";
         public const string SleepLeftTarget = "SleepLeft";

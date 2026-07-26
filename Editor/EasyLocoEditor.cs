@@ -21,12 +21,22 @@ namespace Puetsua.VRCEasyLoco.Editor
         private ReorderableList crouchList;
         private ReorderableList proneList;
 
-        private bool showPoses = true;
-        private bool showSleep = true;
-        private bool showAfk = true;
+        // Section keys are stable strings rather than field names: they end up in the user's editor
+        // prefs, so renaming a field must not silently forget their choice.
+        private const string PosesFoldoutKey = "Idle";
+        private const string SleepFoldoutKey = "Sleep";
+        private const string AfkFoldoutKey = "Afk";
+
+        private bool showPoses;
+        private bool showSleep;
+        private bool showAfk;
 
         private void OnEnable()
         {
+            showPoses = LoadFoldout(PosesFoldoutKey);
+            showSleep = LoadFoldout(SleepFoldoutKey);
+            showAfk = LoadFoldout(AfkFoldoutKey);
+
             InitializeDefaults((EasyLoco)target);
 
             standPoses = serializedObject.FindProperty(nameof(EasyLoco.standPoses));
@@ -48,7 +58,15 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             var easyLoco = (EasyLoco)target;
 
-            using (new EditorGUI.DisabledScope(easyLoco.Avatar == null))
+            // Build installs onto the descriptor sharing this GameObject; with none there is nothing
+            // to install onto, so explain the disabled button rather than leaving it dead.
+            var hasAvatar = easyLoco.Avatar != null;
+            if (!hasAvatar)
+            {
+                EditorGUILayout.HelpBox("This component must be on the same GameObject as the VRCAvatarDescriptor.", MessageType.Warning);
+            }
+
+            using (new EditorGUI.DisabledScope(!hasAvatar))
             {
                 if (GUILayout.Button("Build Modular Avatar"))
                 {
@@ -59,13 +77,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            using (new EditorGUI.DisabledScope(true))
-            {
-                EditorGUILayout.ObjectField("Avatar", easyLoco.Avatar, typeof(VRC.SDK3.Avatars.Components.VRCAvatarDescriptor), true);
-            }
-
-            EditorGUILayout.Space();
-            showPoses = EditorGUILayout.Foldout(showPoses, "Idle Animations", true, EditorStyles.foldoutHeader);
+            showPoses = DrawFoldout(PosesFoldoutKey, "Idle Animations", showPoses);
             if (showPoses)
             {
                 EditorGUILayout.HelpBox("Row 0 is the Default pose (its clip may be overridden but it cannot be removed). Add rows to expose extra poses in the Idle Poses menu.", MessageType.None);
@@ -76,7 +88,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            showSleep = EditorGUILayout.Foldout(showSleep, "Sleep Animations", true, EditorStyles.foldoutHeader);
+            showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep);
             if (showSleep)
             {
                 EditorGUILayout.HelpBox("Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.", MessageType.None);
@@ -90,7 +102,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            showAfk = EditorGUILayout.Foldout(showAfk, "AFK Animations", true, EditorStyles.foldoutHeader);
+            showAfk = DrawFoldout(AfkFoldoutKey, "AFK Animations", showAfk);
             if (showAfk)
             {
                 EditorGUILayout.HelpBox("AFK is branched by posture at runtime. Leave a clip empty to keep the built-in default for that stage.", MessageType.None);
@@ -100,6 +112,30 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             serializedObject.ApplyModifiedProperties();
+        }
+
+        // Sections start collapsed, and the user's expand/collapse choice is remembered across
+        // selections and editor sessions. Only writes on change: the pref is read once in OnEnable
+        // and the in-memory copy carries the repaints.
+        private static bool DrawFoldout(string key, string label, bool expanded)
+        {
+            var value = EditorGUILayout.Foldout(expanded, label, true, EditorStyles.foldoutHeader);
+            if (value != expanded)
+            {
+                EditorPrefs.SetBool(FoldoutPrefKey(key), value);
+            }
+
+            return value;
+        }
+
+        private static bool LoadFoldout(string key)
+        {
+            return EditorPrefs.GetBool(FoldoutPrefKey(key), false);
+        }
+
+        private static string FoldoutPrefKey(string key)
+        {
+            return EasyLocoConst.EditorPrefsPrefix + "Foldout." + key;
         }
 
         private ReorderableList CreatePoseList(SerializedProperty listProperty, string header)
