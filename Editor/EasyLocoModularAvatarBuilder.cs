@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using nadena.dev.modular_avatar.core;
@@ -19,6 +20,11 @@ namespace Puetsua.VRCEasyLoco.Editor
         private const string EntryMenuPath = EasyLocoConst.MenusFolder + "/EasyLocoEntry.asset";
         private const string EmoteParameterName = "VRCEmote";
         private const string GeneratedRoot = "Assets/PuetsuaWorkshop/Generated/EasyLoco";
+
+        // Prefixes every asset the build writes. CreateAsset renames the object after its file, so a
+        // generated copy is called "<prefix><template name>" - anything matching a generated asset
+        // by its template's name has to strip this first.
+        private const string GeneratedAssetPrefix = "EasyLoco";
 
         /// <summary>Per-stance idle build state gathered up front and reused for params + menu.</summary>
         private sealed class StanceBuild
@@ -134,11 +140,12 @@ namespace Puetsua.VRCEasyLoco.Editor
             // Sleep clips live at the leaves of the DefaultSleepingFacing* trees, one per sleeping
             // state. Registering them here lets ReplaceMotion's existing clone path rebuild those
             // trees for this avatar.
-            AddSleepReplacements(baseReplacements, easyLoco.sleep);
+            var sideClip = AddSleepReplacements(baseReplacements, easyLoco.sleep);
 
             // Always generate copies of both templates so the avatar merges the generated
             // controllers, never the shared template assets (which a user could edit by accident).
             var baseController = (AnimatorController)BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements);
+            ApplySleepSideOffsets(baseController, sideClip, outputFolder);
             foreach (var stance in stances)
             {
                 if (stance.HasMenu)
@@ -265,21 +272,143 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         // A clip equal to the built-in is skipped: registering it would force a needless clone of
         // the whole sleeping tree for an avatar that never customised anything.
-        private static void AddSleepReplacements(IDictionary<string, Motion> replacements, EasyLoco.SleepSet sleep)
+        //
+        // The on-side pose is the exception and is always registered, because every sleeping tree
+        // needs its own yawed copy of it (see ApplySleepSideOffsets) and that rewrite may only touch
+        // clones living in the avatar's folder - never the shared package trees. Returns the side
+        // clip actually in effect, built-in or override.
+        private static AnimationClip AddSleepReplacements(IDictionary<string, Motion> replacements, EasyLoco.SleepSet sleep)
         {
-            if (sleep == null)
+            AddSleepReplacement(replacements, EasyLocoConst.SleepUpTarget, EasyLocoConst.SleepUpClip, sleep?.up);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepDownTarget, EasyLocoConst.SleepDownClip, sleep?.down);
+
+            var sideClip = sleep?.side != null ? sleep.side : AssetDatabase.LoadAssetAtPath<AnimationClip>(EasyLocoConst.SleepSideClip);
+            if (sideClip != null)
+            {
+                replacements[EasyLocoConst.SleepSideTarget] = sideClip;
+            }
+
+            return sideClip;
+        }
+
+        // Root Transform Rotation offset the on-side pose needs in each sleeping tree. The pose is
+        // the same in all four - only its yaw differs - so one authored clip covers every case and
+        // the copies are generated here instead of shipped.
+        //
+        // The free branch sits halfway between its two facing clips (SleepUp at 0, SleepDown at
+        // -180). The feet-locked branch instead matches its facing clip exactly, because Feet Lock
+        // puts both feet on Animation and they have to land where that facing pose puts them.
+        private static readonly Dictionary<string, float> SleepSideOrientationOffsets = new Dictionary<string, float>
+        {
+            { EasyLocoConst.SleepFacingUpTree, -90f },
+            { EasyLocoConst.SleepFacingDownTree, -90f },
+            { EasyLocoConst.SleepFacingUpFeetLockTree, 0f },
+            { EasyLocoConst.SleepFacingDownFeetLockTree, 180f },
+        };
+
+        private static void ApplySleepSideOffsets(AnimatorController controller, AnimationClip sideClip, string outputFolder)
+        {
+            if (controller == null || sideClip == null)
             {
                 return;
             }
 
-            AddSleepReplacement(replacements, EasyLocoConst.SleepUpTarget, EasyLocoConst.SleepUpClip, sleep.up);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepDownTarget, EasyLocoConst.SleepDownClip, sleep.down);
+            var oriented = new Dictionary<float, AnimationClip>();
+            foreach (var layer in controller.layers)
+            {
+                ApplySleepSideOffsets(layer.stateMachine, sideClip, outputFolder, oriented);
+            }
+        }
 
-            // One registration per on-side pose covers both sides: each tree references the clip
-            // twice, once mirrored, and replacing by name hits both children.
-            AddSleepReplacement(replacements, EasyLocoConst.SleepSideTarget, EasyLocoConst.SleepSideClip, sleep.side?.normal);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepSideFeetLockUpTarget, EasyLocoConst.SleepSideFeetLockUpClip, sleep.side?.feetLockUp);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepSideFeetLockDownTarget, EasyLocoConst.SleepSideFeetLockDownClip, sleep.side?.feetLockDown);
+        private static void ApplySleepSideOffsets(AnimatorStateMachine stateMachine, AnimationClip sideClip, string outputFolder, Dictionary<float, AnimationClip> oriented)
+        {
+            foreach (var childState in stateMachine.states)
+            {
+                ApplySleepSideOffsets(childState.state.motion as BlendTree, sideClip, outputFolder, oriented);
+            }
+
+            foreach (var childStateMachine in stateMachine.stateMachines)
+            {
+                ApplySleepSideOffsets(childStateMachine.stateMachine, sideClip, outputFolder, oriented);
+            }
+        }
+
+        private static void ApplySleepSideOffsets(BlendTree tree, AnimationClip sideClip, string outputFolder, Dictionary<float, AnimationClip> oriented)
+        {
+            // By this point the tree is a clone, and CreateAsset renamed it after its file - so the
+            // name carries the generated prefix and will not match the template name as-is.
+            if (tree == null || !SleepSideOrientationOffsets.TryGetValue(StripGeneratedPrefix(tree.name), out var offset))
+            {
+                return;
+            }
+
+            // The clone pass should have brought this tree into the avatar's folder. If it did not,
+            // the tree is still the shared package asset and must be left alone.
+            var treePath = AssetDatabase.GetAssetPath(tree);
+            if (!string.IsNullOrEmpty(treePath) && !treePath.StartsWith(outputFolder))
+            {
+                return;
+            }
+
+            var clip = GetOrientedSideClip(sideClip, offset, outputFolder, oriented);
+            var children = tree.children;
+            var changed = false;
+
+            for (var i = 0; i < children.Length; i++)
+            {
+                // The child at the origin is the facing pose, not the on-side one.
+                var position = children[i].position;
+                if (position == Vector2.zero || children[i].motion == clip)
+                {
+                    continue;
+                }
+
+                children[i].motion = clip;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                tree.children = children;
+                EditorUtility.SetDirty(tree);
+            }
+        }
+
+        // Yawing a humanoid clip is a clip setting, not a curve edit, so the copy differs from the
+        // source only by orientationOffsetY. Cached per offset: the four trees need three distinct
+        // yaws between them, and the deterministic path means re-creating one would delete the asset
+        // an earlier tree was pointed at.
+        private static AnimationClip GetOrientedSideClip(AnimationClip sideClip, float offset, string outputFolder, Dictionary<float, AnimationClip> oriented)
+        {
+            if (oriented.TryGetValue(offset, out var cached))
+            {
+                return cached;
+            }
+
+            var sourceSettings = AnimationUtility.GetAnimationClipSettings(sideClip);
+            if (Mathf.Approximately(sourceSettings.orientationOffsetY, offset))
+            {
+                oriented.Add(offset, sideClip); // already yawed the way this slot wants
+                return sideClip;
+            }
+
+            var clip = Object.Instantiate(sideClip);
+            clip.name = sideClip.name + "_" + offset.ToString("0", CultureInfo.InvariantCulture);
+
+            var settings = AnimationUtility.GetAnimationClipSettings(clip);
+            settings.orientationOffsetY = offset;
+            AnimationUtility.SetAnimationClipSettings(clip, settings);
+
+            var path = outputFolder + "/" + GeneratedAssetPrefix + SanitizeFileName(clip.name) + ".anim";
+            if (AssetDatabase.LoadAssetAtPath<Object>(path) != null)
+            {
+                AssetDatabase.DeleteAsset(path);
+            }
+            AssetDatabase.CreateAsset(clip, path);
+            EditorUtility.SetDirty(clip);
+
+            oriented.Add(offset, clip);
+            return clip;
         }
 
         private static void AddSleepReplacement(IDictionary<string, Motion> replacements, string targetName, string builtInPath, AnimationClip clip)
@@ -493,7 +622,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             var root = CloneBlendTreeInMemory(source, replacements, nested);
 
             // Deterministic name so rebuilding overwrites the previous clone instead of piling up copies.
-            var clonePath = outputFolder + "/EasyLoco" + SanitizeFileName(source.name) + ".asset";
+            var clonePath = outputFolder + "/" + GeneratedAssetPrefix + SanitizeFileName(source.name) + ".asset";
             if (AssetDatabase.LoadAssetAtPath<Object>(clonePath) != null)
             {
                 AssetDatabase.DeleteAsset(clonePath);
@@ -796,6 +925,11 @@ namespace Puetsua.VRCEasyLoco.Editor
         {
             var avatarName = SanitizeFileName(avatar.gameObject.name);
             return GeneratedRoot + "/" + avatarName;
+        }
+
+        private static string StripGeneratedPrefix(string name)
+        {
+            return name != null && name.StartsWith(GeneratedAssetPrefix) ? name.Substring(GeneratedAssetPrefix.Length) : name;
         }
 
         private static string SanitizeFileName(string value)

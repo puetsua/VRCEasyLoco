@@ -91,12 +91,12 @@ namespace Puetsua.VRCEasyLoco.Editor
             showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep);
             if (showSleep)
             {
-                EditorGUILayout.HelpBox("Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.", MessageType.None);
+                EditorGUILayout.HelpBox("Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side is authored lying on the left; the right side is mirrored automatically, and Feet Lock plays the same pose.", MessageType.None);
                 using (new EditorGUI.IndentLevelScope())
                 {
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
-                    DrawSleepSideSet("On Side", sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)));
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side"));
                 }
             }
 
@@ -196,21 +196,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return list;
         }
 
-        // Feet Lock keeps both feet on the floor, which needs its own on-side pose per facing; the
-        // facing up/down clips above are shared with that branch. One clip covers both sides - it is
-        // authored lying on the left and played mirrored for the right.
-        private static void DrawSleepSideSet(string label, SerializedProperty sideSet)
-        {
-            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("Authored lying on the left; the right side is mirrored automatically.", MessageType.None);
-            using (new EditorGUI.IndentLevelScope())
-            {
-                EditorGUILayout.PropertyField(sideSet.FindPropertyRelative(nameof(EasyLoco.SleepSideSet.normal)), new GUIContent("Normal"));
-                EditorGUILayout.PropertyField(sideSet.FindPropertyRelative(nameof(EasyLoco.SleepSideSet.feetLockUp)), new GUIContent("Feet Lock (Facing Up)"));
-                EditorGUILayout.PropertyField(sideSet.FindPropertyRelative(nameof(EasyLoco.SleepSideSet.feetLockDown)), new GUIContent("Feet Lock (Facing Down)"));
-            }
-        }
-
         private static void DrawAfkSet(string label, SerializedProperty afkSet)
         {
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
@@ -287,23 +272,13 @@ namespace Puetsua.VRCEasyLoco.Editor
                 changed = true;
             }
 
-            if (!IsSideSetFilled(set.side))
+            if (set.side == null)
             {
-                set.side = new EasyLoco.SleepSideSet
-                {
-                    normal = LoadClip(EasyLocoConst.SleepSideClip),
-                    feetLockUp = LoadClip(EasyLocoConst.SleepSideFeetLockUpClip),
-                    feetLockDown = LoadClip(EasyLocoConst.SleepSideFeetLockDownClip),
-                };
+                set.side = LoadClip(EasyLocoConst.SleepSideClip);
                 changed = true;
             }
 
             return changed;
-        }
-
-        private static bool IsSideSetFilled(EasyLoco.SleepSideSet set)
-        {
-            return set != null && (set.normal != null || set.feetLockUp != null || set.feetLockDown != null);
         }
 
         // Prefill a fresh AFK set (all stages empty) with the shared built-in defaults.
