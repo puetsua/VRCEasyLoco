@@ -79,12 +79,13 @@ namespace Puetsua.VRCEasyLoco.Editor
             showSleep = EditorGUILayout.Foldout(showSleep, "Sleep Animations", true, EditorStyles.foldoutHeader);
             if (showSleep)
             {
-                EditorGUILayout.HelpBox("Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the three. Leave a clip empty to keep the built-in default.", MessageType.None);
+                EditorGUILayout.HelpBox("Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.", MessageType.None);
                 using (new EditorGUI.IndentLevelScope())
                 {
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side"));
+                    DrawSleepSideSet("On Left Side", sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.left)));
+                    DrawSleepSideSet("On Right Side", sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.right)));
                 }
             }
 
@@ -160,6 +161,19 @@ namespace Puetsua.VRCEasyLoco.Editor
             return list;
         }
 
+        // Feet Lock keeps both feet on the floor, which needs its own on-side pose per facing; the
+        // facing up/down clips above are shared with that branch.
+        private static void DrawSleepSideSet(string label, SerializedProperty sideSet)
+        {
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            using (new EditorGUI.IndentLevelScope())
+            {
+                EditorGUILayout.PropertyField(sideSet.FindPropertyRelative(nameof(EasyLoco.SleepSideSet.normal)), new GUIContent("Normal"));
+                EditorGUILayout.PropertyField(sideSet.FindPropertyRelative(nameof(EasyLoco.SleepSideSet.feetLockUp)), new GUIContent("Feet Lock (Facing Up)"));
+                EditorGUILayout.PropertyField(sideSet.FindPropertyRelative(nameof(EasyLoco.SleepSideSet.feetLockDown)), new GUIContent("Feet Lock (Facing Down)"));
+            }
+        }
+
         private static void DrawAfkSet(string label, SerializedProperty afkSet)
         {
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
@@ -220,15 +234,34 @@ namespace Puetsua.VRCEasyLoco.Editor
         // Prefill a fresh sleep set (all facings empty) with the built-in sleep clips.
         private static bool InitializeSleepDefaults(EasyLoco.SleepSet set)
         {
-            if (set == null || set.up != null || set.down != null || set.side != null)
+            if (set == null || set.up != null || set.down != null || IsSideSetFilled(set.left) || IsSideSetFilled(set.right))
             {
                 return false;
             }
 
             set.up = LoadClip(EasyLocoConst.SleepUpClip);
             set.down = LoadClip(EasyLocoConst.SleepDownClip);
-            set.side = LoadClip(EasyLocoConst.SleepSideClip);
+
+            set.left = new EasyLoco.SleepSideSet
+            {
+                normal = LoadClip(EasyLocoConst.SleepLeftClip),
+                feetLockUp = LoadClip(EasyLocoConst.SleepLeftFeetLockUpClip),
+                feetLockDown = LoadClip(EasyLocoConst.SleepLeftFeetLockDownClip),
+            };
+
+            set.right = new EasyLoco.SleepSideSet
+            {
+                normal = LoadClip(EasyLocoConst.SleepRightClip),
+                feetLockUp = LoadClip(EasyLocoConst.SleepRightFeetLockUpClip),
+                feetLockDown = LoadClip(EasyLocoConst.SleepRightFeetLockDownClip),
+            };
+
             return true;
+        }
+
+        private static bool IsSideSetFilled(EasyLoco.SleepSideSet set)
+        {
+            return set != null && (set.normal != null || set.feetLockUp != null || set.feetLockDown != null);
         }
 
         // Prefill a fresh AFK set (all stages empty) with the shared built-in defaults.

@@ -9,6 +9,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         public const string PackageRoot = "Packages/" + PackageName;
         public const string AnimationsFolder = PackageRoot + "/Animations";
+        public const string IdleAnimationsFolder = AnimationsFolder + "/Idle";
+        public const string SleepAnimationsFolder = AnimationsFolder + "/Sleeping";
+        public const string AfkAnimationsFolder = AnimationsFolder + "/Afk";
         public const string MenusFolder = PackageRoot + "/Menus";
         public const string MainMenuPath = MenusFolder + "/EasyLocoMain.asset";
 
@@ -30,8 +33,8 @@ namespace Puetsua.VRCEasyLoco.Editor
         // sticks once you are upright or awake.
         public const string FeetLockParam = "EasyLocoFeetLock";
 
-        // Idle-pose selector parameters (one Int per stance). Toggle menu items and the nested
-        // idle blend trees both reference these by name.
+        // Idle-pose selector parameters (one Float per stance, carrying 0..1 - see PoseValue in the
+        // builder). Toggle menu items and the nested idle blend trees both reference these by name.
         public const string IdleStandParam = "EasyLocoIdleStand";
         public const string IdleCrouchParam = "EasyLocoIdleCrouch";
         public const string IdleProneParam = "EasyLocoIdleProne";
@@ -43,34 +46,49 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string ProneIdleTarget = "IdleProneDefault";
 
         // Built-in idle clips used to prefill a freshly added component.
-        public const string StandDefaultClip = AnimationsFolder + "/IdleStandDefault.anim";
-        public const string StandWide1Clip = AnimationsFolder + "/IdleStandWide1.anim";
-        public const string StandWide2Clip = AnimationsFolder + "/IdleStandWide2.anim";
-        public const string CrouchDefaultClip = AnimationsFolder + "/IdleCrouchDefault.anim";
-        public const string CrouchSquattingClip = AnimationsFolder + "/IdleCrouchSquatting.anim";
-        public const string ProneDefaultClip = AnimationsFolder + "/IdleProneDefault.anim";
-        public const string ProneLyingDownClip = AnimationsFolder + "/IdleProneLyingDown.anim";
+        public const string StandDefaultClip = IdleAnimationsFolder + "/IdleStandDefault.anim";
+        public const string StandWide1Clip = IdleAnimationsFolder + "/IdleStandWide1.anim";
+        public const string StandWide2Clip = IdleAnimationsFolder + "/IdleStandWide2.anim";
+        public const string CrouchDefaultClip = IdleAnimationsFolder + "/IdleCrouchDefault.anim";
+        public const string CrouchSquattingClip = IdleAnimationsFolder + "/IdleCrouchSquatting.anim";
+        public const string ProneDefaultClip = IdleAnimationsFolder + "/IdleProneDefault.anim";
+        public const string ProneLyingDownClip = IdleAnimationsFolder + "/IdleProneLyingDown.anim";
 
         // The sleep pose clips sitting at the leaves of DefaultProneSleeping -> DefaultSleeping ->
         // DefaultSleepingFacing{Up,Down}. Swapping these by name lets the existing blend-tree clone
         // path rebuild the whole nested tree with the user's clips.
+        //
+        // The feet-locked branch (DefaultProneSleeping*FeetLock*, played while the Feet Lock toggle
+        // holds both feet on the floor) is a parallel tree that reuses the same facing-up/down clips
+        // but has its own on-side poses, hence the extra targets. Every clip file is named after its
+        // target, so the built-in paths are derived from these names.
         public const string SleepUpTarget = "SleepUp";
         public const string SleepDownTarget = "SleepDown";
-        public const string SleepSideTarget = "SleepSide";
+        public const string SleepLeftTarget = "SleepLeft";
+        public const string SleepRightTarget = "SleepRight";
+        public const string SleepLeftFeetLockUpTarget = "SleepLeftFeetLockUp";
+        public const string SleepLeftFeetLockDownTarget = "SleepLeftFeetLockDown";
+        public const string SleepRightFeetLockUpTarget = "SleepRightFeetLockUp";
+        public const string SleepRightFeetLockDownTarget = "SleepRightFeetLockDown";
 
         // Built-in sleep clips used to prefill a freshly added component.
-        public const string SleepUpClip = AnimationsFolder + "/SleepUp.anim";
-        public const string SleepDownClip = AnimationsFolder + "/SleepDown.anim";
-        public const string SleepSideClip = AnimationsFolder + "/SleepSide.anim";
+        public const string SleepUpClip = SleepAnimationsFolder + "/" + SleepUpTarget + ".anim";
+        public const string SleepDownClip = SleepAnimationsFolder + "/" + SleepDownTarget + ".anim";
+        public const string SleepLeftClip = SleepAnimationsFolder + "/" + SleepLeftTarget + ".anim";
+        public const string SleepRightClip = SleepAnimationsFolder + "/" + SleepRightTarget + ".anim";
+        public const string SleepLeftFeetLockUpClip = SleepAnimationsFolder + "/" + SleepLeftFeetLockUpTarget + ".anim";
+        public const string SleepLeftFeetLockDownClip = SleepAnimationsFolder + "/" + SleepLeftFeetLockDownTarget + ".anim";
+        public const string SleepRightFeetLockUpClip = SleepAnimationsFolder + "/" + SleepRightFeetLockUpTarget + ".anim";
+        public const string SleepRightFeetLockDownClip = SleepAnimationsFolder + "/" + SleepRightFeetLockDownTarget + ".anim";
 
         // AFK is branched by posture; each stance state is named "Afk <Stance> <Stage>". The builder
         // swaps these states' motions with the component's per-stance clips.
         public const string AfkStatePrefix = "Afk ";
 
         // Built-in AFK clips shared as the default for every stance branch.
-        public const string AfkEnteringDefaultClip = AnimationsFolder + "/AfkEnteringDefault.anim";
-        public const string AfkLoopingDefaultClip = AnimationsFolder + "/AfkLoopingDefault.anim";
-        public const string AfkExitingDefaultClip = AnimationsFolder + "/AfkExitingDefault.anim";
+        public const string AfkEnteringDefaultClip = AfkAnimationsFolder + "/AfkEnteringDefault.anim";
+        public const string AfkLoopingDefaultClip = AfkAnimationsFolder + "/AfkLoopingDefault.anim";
+        public const string AfkExitingDefaultClip = AfkAnimationsFolder + "/AfkExitingDefault.anim";
 
         public static readonly string[] LayerNames =
         {

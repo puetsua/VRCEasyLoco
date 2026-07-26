@@ -219,7 +219,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 children[i] = new ChildMotion
                 {
                     motion = stance.Entries[i].clip,
-                    threshold = i,
+                    threshold = PoseValue(i, children.Length),
                     timeScale = 1f,
                     directBlendParameter = stance.ParamName,
                 };
@@ -273,7 +273,14 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             AddSleepReplacement(replacements, EasyLocoConst.SleepUpTarget, EasyLocoConst.SleepUpClip, sleep.up);
             AddSleepReplacement(replacements, EasyLocoConst.SleepDownTarget, EasyLocoConst.SleepDownClip, sleep.down);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepSideTarget, EasyLocoConst.SleepSideClip, sleep.side);
+
+            AddSleepReplacement(replacements, EasyLocoConst.SleepLeftTarget, EasyLocoConst.SleepLeftClip, sleep.left?.normal);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepLeftFeetLockUpTarget, EasyLocoConst.SleepLeftFeetLockUpClip, sleep.left?.feetLockUp);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepLeftFeetLockDownTarget, EasyLocoConst.SleepLeftFeetLockDownClip, sleep.left?.feetLockDown);
+
+            AddSleepReplacement(replacements, EasyLocoConst.SleepRightTarget, EasyLocoConst.SleepRightClip, sleep.right?.normal);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepRightFeetLockUpTarget, EasyLocoConst.SleepRightFeetLockUpClip, sleep.right?.feetLockUp);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepRightFeetLockDownTarget, EasyLocoConst.SleepRightFeetLockDownClip, sleep.right?.feetLockDown);
         }
 
         private static void AddSleepReplacement(IDictionary<string, Motion> replacements, string targetName, string builtInPath, AnimationClip clip)
@@ -547,7 +554,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 for (var i = 0; i < stance.Entries.Count; i++)
                 {
                     var label = string.IsNullOrEmpty(stance.Entries[i].menuName) ? "Pose " + i : stance.Entries[i].menuName;
-                    stanceMenu.controls.Add(MakeToggle(label, stance.ParamName, i));
+                    stanceMenu.controls.Add(MakeToggle(label, stance.ParamName, PoseValue(i, stance.Entries.Count)));
                 }
                 EditorUtility.SetDirty(stanceMenu);
 
@@ -563,7 +570,17 @@ namespace Puetsua.VRCEasyLoco.Editor
             EnsureIdleMenuInstaller(host, entry, mainMenu);
         }
 
-        private static VRCExpressionsMenu.Control MakeToggle(string name, string parameterName, int value)
+        // A synced VRChat Float only carries -1..1, so pose N cannot be selected by its raw index:
+        // anything above 1 clamps down to 1. With three stand poses that made "Wide2" land on the
+        // same value as "Wide1", so the menu drew Wide1 as already active and the next click on it
+        // read as switching it off - back to the default pose. Spreading the poses evenly across
+        // 0..1 keeps every selection inside the syncable range and distinct from its neighbours.
+        private static float PoseValue(int index, int count)
+        {
+            return count <= 1 ? 0f : (float)index / (count - 1);
+        }
+
+        private static VRCExpressionsMenu.Control MakeToggle(string name, string parameterName, float value)
         {
             return new VRCExpressionsMenu.Control
             {
