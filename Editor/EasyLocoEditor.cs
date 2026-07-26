@@ -96,8 +96,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 {
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
-                    DrawSleepSideSet("On Left Side", sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.left)));
-                    DrawSleepSideSet("On Right Side", sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.right)));
+                    DrawSleepSideSet("On Side", sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)));
                 }
             }
 
@@ -198,10 +197,12 @@ namespace Puetsua.VRCEasyLoco.Editor
         }
 
         // Feet Lock keeps both feet on the floor, which needs its own on-side pose per facing; the
-        // facing up/down clips above are shared with that branch.
+        // facing up/down clips above are shared with that branch. One clip covers both sides - it is
+        // authored lying on the left and played mirrored for the right.
         private static void DrawSleepSideSet(string label, SerializedProperty sideSet)
         {
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Authored lying on the left; the right side is mirrored automatically.", MessageType.None);
             using (new EditorGUI.IndentLevelScope())
             {
                 EditorGUILayout.PropertyField(sideSet.FindPropertyRelative(nameof(EasyLoco.SleepSideSet.normal)), new GUIContent("Normal"));
@@ -267,32 +268,37 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        // Prefill a fresh sleep set (all facings empty) with the built-in sleep clips.
+        // Prefill empty parts of a sleep set with the built-in clips. The facings and the side pose
+        // are filled independently: a component authored before the side pose collapsed to one clip
+        // still has its facings, and an all-or-nothing guard would leave the new side group blank.
         private static bool InitializeSleepDefaults(EasyLoco.SleepSet set)
         {
-            if (set == null || set.up != null || set.down != null || IsSideSetFilled(set.left) || IsSideSetFilled(set.right))
+            if (set == null)
             {
                 return false;
             }
 
-            set.up = LoadClip(EasyLocoConst.SleepUpClip);
-            set.down = LoadClip(EasyLocoConst.SleepDownClip);
+            var changed = false;
 
-            set.left = new EasyLoco.SleepSideSet
+            if (set.up == null && set.down == null)
             {
-                normal = LoadClip(EasyLocoConst.SleepLeftClip),
-                feetLockUp = LoadClip(EasyLocoConst.SleepLeftFeetLockUpClip),
-                feetLockDown = LoadClip(EasyLocoConst.SleepLeftFeetLockDownClip),
-            };
+                set.up = LoadClip(EasyLocoConst.SleepUpClip);
+                set.down = LoadClip(EasyLocoConst.SleepDownClip);
+                changed = true;
+            }
 
-            set.right = new EasyLoco.SleepSideSet
+            if (!IsSideSetFilled(set.side))
             {
-                normal = LoadClip(EasyLocoConst.SleepRightClip),
-                feetLockUp = LoadClip(EasyLocoConst.SleepRightFeetLockUpClip),
-                feetLockDown = LoadClip(EasyLocoConst.SleepRightFeetLockDownClip),
-            };
+                set.side = new EasyLoco.SleepSideSet
+                {
+                    normal = LoadClip(EasyLocoConst.SleepSideClip),
+                    feetLockUp = LoadClip(EasyLocoConst.SleepSideFeetLockUpClip),
+                    feetLockDown = LoadClip(EasyLocoConst.SleepSideFeetLockDownClip),
+                };
+                changed = true;
+            }
 
-            return true;
+            return changed;
         }
 
         private static bool IsSideSetFilled(EasyLoco.SleepSideSet set)

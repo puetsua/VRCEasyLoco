@@ -64,26 +64,25 @@ namespace Puetsua.VRCEasyLoco.Editor
         //
         // The feet-locked branch (DefaultSleepingFacing*FeetLock, played while the Feet Lock toggle
         // holds both feet on the floor) is a parallel pair of trees that reuses the same
-        // facing-up/down clips but has its own on-side poses, hence the extra targets. Every clip
-        // file is named after its target, so the built-in paths are derived from these names.
+        // facing-up/down clips but has its own on-side pose. Every clip file is named after its
+        // target, so the built-in paths are derived from these names.
+        //
+        // There is one on-side pose, not one per side: SleepSide lies on the left (right side up,
+        // so it plays at EasyLocoFacingRight), and the trees reference it a second time with the
+        // child's Mirror flag set for the other side. The clips are humanoid, so Unity mirrors the
+        // pose exactly - a user overriding the side pose gets both sides from the one clip.
         public const string SleepUpTarget = "SleepUp";
         public const string SleepDownTarget = "SleepDown";
-        public const string SleepLeftTarget = "SleepLeft";
-        public const string SleepRightTarget = "SleepRight";
-        public const string SleepLeftFeetLockUpTarget = "SleepLeftFeetLockUp";
-        public const string SleepLeftFeetLockDownTarget = "SleepLeftFeetLockDown";
-        public const string SleepRightFeetLockUpTarget = "SleepRightFeetLockUp";
-        public const string SleepRightFeetLockDownTarget = "SleepRightFeetLockDown";
+        public const string SleepSideTarget = "SleepSide";
+        public const string SleepSideFeetLockUpTarget = "SleepSideFeetLockUp";
+        public const string SleepSideFeetLockDownTarget = "SleepSideFeetLockDown";
 
         // Built-in sleep clips used to prefill a freshly added component.
         public const string SleepUpClip = SleepAnimationsFolder + "/" + SleepUpTarget + ".anim";
         public const string SleepDownClip = SleepAnimationsFolder + "/" + SleepDownTarget + ".anim";
-        public const string SleepLeftClip = SleepAnimationsFolder + "/" + SleepLeftTarget + ".anim";
-        public const string SleepRightClip = SleepAnimationsFolder + "/" + SleepRightTarget + ".anim";
-        public const string SleepLeftFeetLockUpClip = SleepAnimationsFolder + "/" + SleepLeftFeetLockUpTarget + ".anim";
-        public const string SleepLeftFeetLockDownClip = SleepAnimationsFolder + "/" + SleepLeftFeetLockDownTarget + ".anim";
-        public const string SleepRightFeetLockUpClip = SleepAnimationsFolder + "/" + SleepRightFeetLockUpTarget + ".anim";
-        public const string SleepRightFeetLockDownClip = SleepAnimationsFolder + "/" + SleepRightFeetLockDownTarget + ".anim";
+        public const string SleepSideClip = SleepAnimationsFolder + "/" + SleepSideTarget + ".anim";
+        public const string SleepSideFeetLockUpClip = SleepAnimationsFolder + "/" + SleepSideFeetLockUpTarget + ".anim";
+        public const string SleepSideFeetLockDownClip = SleepAnimationsFolder + "/" + SleepSideFeetLockDownTarget + ".anim";
 
         // AFK is branched by posture; each stance state is named "Afk <Stance> <Stage>". The builder
         // swaps these states' motions with the component's per-stance clips.

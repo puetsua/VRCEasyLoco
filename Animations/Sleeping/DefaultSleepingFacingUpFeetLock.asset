@@ -25,13 +25,13 @@ BlendTree:
     m_DirectBlendParameter: VelocityX
     m_Mirror: 0
   - serializedVersion: 2
-    m_Motion: {fileID: 7400000, guid: d407b78a68117e64c9a38a259c24e0b7, type: 2}
+    m_Motion: {fileID: 7400000, guid: 0f299c1013af434438677d794a96974c, type: 2}
     m_Threshold: 2
     m_Position: {x: 1, y: 0}
     m_TimeScale: 1
     m_CycleOffset: 0
     m_DirectBlendParameter: VelocityX
-    m_Mirror: 0
+    m_Mirror: 1
   m_BlendParameter: EasyLocoFacingLeft
   m_BlendParameterY: EasyLocoFacingRight
   m_MinThreshold: 0

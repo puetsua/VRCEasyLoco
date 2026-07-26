@@ -44,9 +44,13 @@ namespace Puetsua.VRCEasyLoco
         }
 
         /// <summary>
-        /// One on-side sleep pose. <see cref="normal"/> plays with the feet free; the feet-locked
+        /// The on-side sleep pose. <see cref="normal"/> plays with the feet free; the feet-locked
         /// branch swaps in its own variant per facing, because holding both feet on the floor needs
         /// a differently shaped pose than the free one.
+        ///
+        /// One pose covers both sides: it is authored lying on the left, and the blend trees play it
+        /// mirrored for the right. Humanoid clips mirror exactly, so there is nothing to author or
+        /// keep in sync twice.
         /// </summary>
         [Serializable]
         public class SleepSideSet
@@ -66,8 +70,7 @@ namespace Puetsua.VRCEasyLoco
         {
             public AnimationClip up;
             public AnimationClip down;
-            public SleepSideSet left = new SleepSideSet();
-            public SleepSideSet right = new SleepSideSet();
+            public SleepSideSet side = new SleepSideSet();
         }
 
         // Row 0 of each list is the locked Default pose. Additional rows add extra poses that the

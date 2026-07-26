@@ -275,13 +275,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             AddSleepReplacement(replacements, EasyLocoConst.SleepUpTarget, EasyLocoConst.SleepUpClip, sleep.up);
             AddSleepReplacement(replacements, EasyLocoConst.SleepDownTarget, EasyLocoConst.SleepDownClip, sleep.down);
 
-            AddSleepReplacement(replacements, EasyLocoConst.SleepLeftTarget, EasyLocoConst.SleepLeftClip, sleep.left?.normal);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepLeftFeetLockUpTarget, EasyLocoConst.SleepLeftFeetLockUpClip, sleep.left?.feetLockUp);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepLeftFeetLockDownTarget, EasyLocoConst.SleepLeftFeetLockDownClip, sleep.left?.feetLockDown);
-
-            AddSleepReplacement(replacements, EasyLocoConst.SleepRightTarget, EasyLocoConst.SleepRightClip, sleep.right?.normal);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepRightFeetLockUpTarget, EasyLocoConst.SleepRightFeetLockUpClip, sleep.right?.feetLockUp);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepRightFeetLockDownTarget, EasyLocoConst.SleepRightFeetLockDownClip, sleep.right?.feetLockDown);
+            // One registration per on-side pose covers both sides: each tree references the clip
+            // twice, once mirrored, and replacing by name hits both children.
+            AddSleepReplacement(replacements, EasyLocoConst.SleepSideTarget, EasyLocoConst.SleepSideClip, sleep.side?.normal);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepSideFeetLockUpTarget, EasyLocoConst.SleepSideFeetLockUpClip, sleep.side?.feetLockUp);
+            AddSleepReplacement(replacements, EasyLocoConst.SleepSideFeetLockDownTarget, EasyLocoConst.SleepSideFeetLockDownClip, sleep.side?.feetLockDown);
         }
 
         private static void AddSleepReplacement(IDictionary<string, Motion> replacements, string targetName, string builtInPath, AnimationClip clip)
