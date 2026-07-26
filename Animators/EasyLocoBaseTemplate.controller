@@ -273,7 +273,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 20600000, guid: 274defd25802cd14980e58eee8ccf6f5, type: 2}
+  m_Motion: {fileID: 20600000, guid: 91006fd5cd018564cac52a49c6a06878, type: 2}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 
@@ -378,7 +378,7 @@ AnimatorState:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: 'Sleeping Up '
+  m_Name: Sleeping Up
   m_Speed: 1
   m_CycleOffset: 0
   m_Transitions:

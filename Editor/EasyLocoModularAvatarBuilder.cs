@@ -384,10 +384,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        // The clone cache spans the whole controller: one shared tree can be the motion of several
-        // states (both sleeping branches point at DefaultSleepingFacingDown). Cloning it per state
-        // would have each clone delete the asset the previous state was pointed at, leaving that
-        // state with a missing motion.
+        // The clone cache spans the whole controller: nothing stops one shared tree from being the
+        // motion of several states, and cloning it per state would have each clone delete the asset
+        // the previous state was pointed at, leaving that state with a missing motion. The clone
+        // path is deterministic, so the cache is what keeps that safe.
         private static void ReplaceMotions(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
         {
             foreach (var childState in stateMachine.states)
