@@ -40,11 +40,19 @@ jobs:
           echo "zipFile=${{ env.packageName }}-${{ steps.version.outputs.prop }}.zip" >> $GITHUB_ENV
           echo "unityPackage=${{ env.packageName }}-${{ steps.version.outputs.prop }}.unitypackage" >> $GITHUB_ENV
 
+      # Everything at the root ships except the entries listed here. Dotfiles are
+      # already left behind - the glob skips them - which is why .github and the
+      # git plumbing never reach the package.
       - name: Make Package Folder
         run: |
-          mkdir Packages
-          mkdir Packages/${{ env.packageName }}
-          ls | grep -v Packages | xargs mv -t Packages/${{ env.packageName }}
+          mkdir -p "Packages/$packageName"
+          for entry in *; do
+            case "$entry" in
+              # Repo-only: agent instructions, not something users install.
+              Packages|AGENTS.md|AGENTS.md.meta) continue ;;
+            esac
+            mv "$entry" "Packages/$packageName/"
+          done
 
       - name: Create Zip
         uses: thedoctor0/zip-release@09336613be18a8208dfa66bd57efafd9e2685657
