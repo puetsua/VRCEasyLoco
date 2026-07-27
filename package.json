@@ -1,7 +1,7 @@
 {
   "name": "vrchat.puetsuaworkshop.easyloco",
   "displayName": "EasyLoco",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Customise VRChat avatar locomotion - idle poses, sleeping, and AFK animations - installed through Modular Avatar.",
   "gitDependencies": {},
   "dependencies": {},
