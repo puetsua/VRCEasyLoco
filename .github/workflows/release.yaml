@@ -15,10 +15,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # git-cliff needs the whole history and the previous tags to work out
+          # what is new in this release.
+          fetch-depth: 0
 
       - name: get version
         id: version
         run: echo "prop=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+
+      # Written outside the workspace on purpose: the next step sweeps every
+      # non-dotfile at the root into the package folder, and the notes are not
+      # part of what ships.
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@v4
+        env:
+          OUTPUT: ${{ runner.temp }}/RELEASE_NOTES.md
+        with:
+          config: .github/cliff.toml
+          args: --unreleased --tag ${{ steps.version.outputs.prop }} --strip all
 
       - name: Set Environment Variables
         run: |
@@ -52,6 +67,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.prop }}
+          body_path: ${{ runner.temp }}/RELEASE_NOTES.md
           files: |
             ${{ env.zipFile }}
             ${{ env.unityPackage }}

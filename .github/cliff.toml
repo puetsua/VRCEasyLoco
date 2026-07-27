@@ -1,0 +1,58 @@
+# git-cliff (https://git-cliff.org) config for the release notes.
+#
+# Lives under .github/ on purpose: the release workflow sweeps every non-dotfile
+# at the repo root into the shipped package folder, so a cliff.toml at the root
+# would end up inside the VPM zip.
+#
+#   generate the notes for a release:  git cliff --config .github/cliff.toml --unreleased --tag <version>
+#   regenerate the whole changelog:    git cliff --config .github/cliff.toml -o CHANGELOG.md
+#
+# Commit subjects here are plain imperative sentences, not Conventional Commits,
+# so the groups below key off the leading verb. Anything unmatched still lands in
+# "Changed" - notes that silently drop a commit are worse than notes with a
+# vaguely grouped entry.
+
+[changelog]
+header = "# Changelog\n\n"
+body = """
+{% set repo = "https://github.com/puetsua/VRCEasyLoco" -%}
+{% if version -%}
+## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{%- else -%}
+## Unreleased
+{%- endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {{ commit.message | split(pat="\n") | first | trim }} ([`{{ commit.id | truncate(length=7, end="") }}`]({{ repo }}/commit/{{ commit.id }}))
+{%- endfor %}
+{%- endfor %}
+{%- if previous.version %}
+
+**Full changelog**: {{ repo }}/compare/{{ previous.version }}...{{ version }}
+{% endif %}
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = false
+filter_unconventional = false
+filter_commits = false
+split_commits = false
+protect_breaking_commits = false
+sort_commits = "oldest"
+
+# Tags are bare versions ("0.2.0"), not the v-prefixed default.
+tag_pattern = "[0-9]*"
+
+# The <!-- n --> markers only order the groups; the template strips them.
+commit_parsers = [
+  # Repo plumbing nobody installing the package needs to read about.
+  { message = "^(?i)(chore|ci|build|style|test|refactor)(\\(.*\\))?!?:", skip = true },
+  { message = "^(?i)(add|introduce|feat)", group = "<!-- 0 -->Added" },
+  { message = "^(?i)(fix|prevent|correct|stop)", group = "<!-- 2 -->Fixed" },
+  { message = "^(?i)(remove|drop|strip|delete)", group = "<!-- 3 -->Removed" },
+  { message = ".*", group = "<!-- 1 -->Changed" },
+]
