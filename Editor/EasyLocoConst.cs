@@ -18,6 +18,11 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string MenusFolder = PackageRoot + "/Menus";
         public const string MainMenuPath = MenusFolder + "/EasyLocoMain.asset";
 
+        // Header artwork drawn at the top of the component inspector. Authored at 400x80; the
+        // inspector scales it down to the panel width and never draws it larger than that.
+        public const string TexturesFolder = PackageRoot + "/Textures";
+        public const string BannerTexturePath = TexturesFolder + "/easylocobanner.png";
+
         // Contact rig that reports head orientation while sleeping. Instantiated under the
         // generated host; the prefab carries its own MA parameter registrations.
         public const string SleepSensorsPrefabPath = PackageRoot + "/Prefabs/SleepLoco.prefab";

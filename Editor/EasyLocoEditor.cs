@@ -31,11 +31,38 @@ namespace Puetsua.VRCEasyLoco.Editor
         private bool showSleep;
         private bool showAfk;
 
+        private bool showPosesHelp;
+        private bool showSleepHelp;
+        private bool showAfkHelp;
+
+        private const float InfoButtonSize = 18f;
+
+        // Leaves room for the inspector's own padding and a scrollbar, so the banner never forces a
+        // horizontal scroll.
+        private const float BannerMargin = 24f;
+
+        private static Texture2D banner;
+
+        private static Texture2D Banner =>
+            banner != null ? banner : (banner = AssetDatabase.LoadAssetAtPath<Texture2D>(EasyLocoConst.BannerTexturePath));
+
+        // Built-in editor icons are only valid once the skin exists, so this is fetched lazily
+        // rather than in a field initializer.
+        private static GUIContent infoIcon;
+
+        private static GUIContent InfoIcon =>
+            infoIcon ?? (infoIcon = new GUIContent(EditorGUIUtility.IconContent("console.infoicon").image,
+                "Show or hide the description for this section."));
+
         private void OnEnable()
         {
             showPoses = LoadFoldout(PosesFoldoutKey);
             showSleep = LoadFoldout(SleepFoldoutKey);
             showAfk = LoadFoldout(AfkFoldoutKey);
+
+            showPosesHelp = LoadHelp(PosesFoldoutKey);
+            showSleepHelp = LoadHelp(SleepFoldoutKey);
+            showAfkHelp = LoadHelp(AfkFoldoutKey);
 
             InitializeDefaults((EasyLoco)target);
 
@@ -55,6 +82,8 @@ namespace Puetsua.VRCEasyLoco.Editor
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
+
+            DrawBanner();
 
             var easyLoco = (EasyLoco)target;
 
@@ -77,10 +106,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            showPoses = DrawFoldout(PosesFoldoutKey, "Idle Animations", showPoses);
+            showPoses = DrawFoldout(PosesFoldoutKey, "Idle Animations", showPoses, ref showPosesHelp);
             if (showPoses)
             {
-                EditorGUILayout.HelpBox("Row 0 is the Default pose (its clip may be overridden but it cannot be removed). Add rows to expose extra poses in the Idle Poses menu.", MessageType.None);
+                DrawHelp(showPosesHelp, "Row 0 is the Default pose (its clip may be overridden but it cannot be removed). Add rows to expose extra poses in the Idle Poses menu.");
 
                 standList.DoLayoutList();
                 crouchList.DoLayoutList();
@@ -88,23 +117,23 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep);
+            showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep, ref showSleepHelp);
             if (showSleep)
             {
-                EditorGUILayout.HelpBox("Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side is authored lying on the left; the right side is mirrored automatically, and Feet Lock plays the same pose.", MessageType.None);
+                DrawHelp(showSleepHelp, "Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side (Left) is the authored pose - lying on the left side; the right side is mirrored from it automatically, and Feet Lock plays the same pose.");
                 using (new EditorGUI.IndentLevelScope())
                 {
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side"));
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side (Left)"));
                 }
             }
 
             EditorGUILayout.Space();
-            showAfk = DrawFoldout(AfkFoldoutKey, "AFK Animations", showAfk);
+            showAfk = DrawFoldout(AfkFoldoutKey, "AFK Animations", showAfk, ref showAfkHelp);
             if (showAfk)
             {
-                EditorGUILayout.HelpBox("AFK is branched by posture at runtime. Leave a clip empty to keep the built-in default for that stage.", MessageType.None);
+                DrawHelp(showAfkHelp, "AFK is branched by posture at runtime. Leave a clip empty to keep the built-in default for that stage.");
                 DrawAfkSet("Stand AFK", standAfk);
                 DrawAfkSet("Crouch AFK", crouchAfk);
                 DrawAfkSet("Prone AFK", proneAfk);
@@ -113,18 +142,67 @@ namespace Puetsua.VRCEasyLoco.Editor
             serializedObject.ApplyModifiedProperties();
         }
 
+        // Shrinks to the inspector width but never scales past the artwork's native size, so a wide
+        // inspector doesn't blow it up into a blurry strip. Only the height is reserved: the row
+        // spans the full width and ScaleToFit centres the artwork inside it. Silently skipped if the
+        // texture is missing - a lost banner shouldn't cost the user the rest of the inspector.
+        private static void DrawBanner()
+        {
+            var banner = Banner;
+            if (banner == null)
+            {
+                return;
+            }
+
+            var width = Mathf.Min(EditorGUIUtility.currentViewWidth - BannerMargin, banner.width);
+            var height = width * banner.height / (float)banner.width;
+            var rect = GUILayoutUtility.GetRect(0f, height, GUILayout.ExpandWidth(true));
+            GUI.DrawTexture(rect, banner, ScaleMode.ScaleToFit);
+        }
+
         // Sections start collapsed, and the user's expand/collapse choice is remembered across
         // selections and editor sessions. Only writes on change: the pref is read once in OnEnable
         // and the in-memory copy carries the repaints.
-        private static bool DrawFoldout(string key, string label, bool expanded)
+        //
+        // The header also carries an (i) button toggling the section's explanation, so the text is
+        // there when wanted without permanently eating inspector height. Its state is remembered the
+        // same way. The button sits outside the foldout's own rect so the two clicks never overlap.
+        private static bool DrawFoldout(string key, string label, bool expanded, ref bool helpShown)
         {
-            var value = EditorGUILayout.Foldout(expanded, label, true, EditorStyles.foldoutHeader);
+            var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight + 4f,
+                EditorStyles.foldoutHeader);
+            var buttonRect = new Rect(rect.xMax - InfoButtonSize, rect.y + 2f, InfoButtonSize, InfoButtonSize);
+            var foldoutRect = new Rect(rect.x, rect.y, rect.width - InfoButtonSize, rect.height);
+
+            var value = EditorGUI.Foldout(foldoutRect, expanded, label, true, EditorStyles.foldoutHeader);
             if (value != expanded)
             {
                 EditorPrefs.SetBool(FoldoutPrefKey(key), value);
             }
 
+            if (GUI.Button(buttonRect, InfoIcon, EditorStyles.iconButton))
+            {
+                helpShown = !helpShown;
+                EditorPrefs.SetBool(HelpPrefKey(key), helpShown);
+
+                // Toggling the description on a collapsed section would otherwise do nothing
+                // visible, since the text is drawn inside the section body.
+                if (helpShown && !value)
+                {
+                    value = true;
+                    EditorPrefs.SetBool(FoldoutPrefKey(key), true);
+                }
+            }
+
             return value;
+        }
+
+        private static void DrawHelp(bool shown, string text)
+        {
+            if (shown)
+            {
+                EditorGUILayout.HelpBox(text, MessageType.None);
+            }
         }
 
         private static bool LoadFoldout(string key)
@@ -132,9 +210,19 @@ namespace Puetsua.VRCEasyLoco.Editor
             return EditorPrefs.GetBool(FoldoutPrefKey(key), false);
         }
 
+        private static bool LoadHelp(string key)
+        {
+            return EditorPrefs.GetBool(HelpPrefKey(key), false);
+        }
+
         private static string FoldoutPrefKey(string key)
         {
             return EasyLocoConst.EditorPrefsPrefix + "Foldout." + key;
+        }
+
+        private static string HelpPrefKey(string key)
+        {
+            return EasyLocoConst.EditorPrefsPrefix + "Help." + key;
         }
 
         private ReorderableList CreatePoseList(SerializedProperty listProperty, string header)
