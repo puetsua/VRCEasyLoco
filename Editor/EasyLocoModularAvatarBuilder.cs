@@ -17,6 +17,12 @@ namespace Puetsua.VRCEasyLoco.Editor
         private const string TemplateControllerFolder = EasyLocoConst.PackageRoot + "/Animators";
         private const string BaseTemplatePath = TemplateControllerFolder + "/EasyLocoBaseTemplate.controller";
         private const string ActionTemplatePath = TemplateControllerFolder + "/EasyLocoActionTemplate.controller";
+
+        // Sleeping lives in its own controller layered over the base one rather than inside it, so
+        // switching the feature off is just "do not merge this" - the base locomotion is untouched
+        // either way. Its states play an empty clip whenever the avatar is not asleep, letting the
+        // base layer show through.
+        private const string SleepTemplatePath = TemplateControllerFolder + "/EasyLocoSleepTemplate.controller";
         private const string EntryMenuPath = EasyLocoConst.MenusFolder + "/EasyLocoEntry.asset";
         private const string EmoteParameterName = "VRCEmote";
         private const string GeneratedRoot = "Assets/PuetsuaWorkshop/Generated/EasyLoco";
@@ -137,15 +143,9 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
             }
 
-            // Sleep clips live at the leaves of the DefaultSleepingFacing* trees, one per sleeping
-            // state. Registering them here lets ReplaceMotion's existing clone path rebuild those
-            // trees for this avatar.
-            var sideClip = AddSleepReplacements(baseReplacements, easyLoco.sleep);
-
-            // Always generate copies of both templates so the avatar merges the generated
+            // Always generate copies of the templates so the avatar merges the generated
             // controllers, never the shared template assets (which a user could edit by accident).
             var baseController = (AnimatorController)BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements);
-            ApplySleepSideOffsets(baseController, sideClip, outputFolder);
             foreach (var stance in stances)
             {
                 if (stance.HasMenu)
@@ -154,18 +154,17 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
             }
             EditorUtility.SetDirty(baseController);
-            EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController);
+            EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController, MergeAnimatorMode.Replace);
+
+            BuildSleep(easyLoco, host, outputFolder);
 
             var actionController = (AnimatorController)BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", new Dictionary<string, Motion>());
             ApplyAfkOverrides(actionController, easyLoco);
             EditorUtility.SetDirty(actionController);
-            EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Action, actionController);
+            EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Action, actionController, MergeAnimatorMode.Replace);
 
             // The Action layer is driven by VRCEmote, exposed through the EasyLoco expression menu.
             EnsureEmoteParameter(host);
-            EnsureSleepModeParameter(host);
-            EnsureFeetLockParameter(host);
-            EnsureSleepSensors(host);
             EnsureMenuInstaller(host);
 
             // Idle-pose selection menu + its synced parameters (only for stances with >1 pose).
@@ -190,6 +189,80 @@ namespace Puetsua.VRCEasyLoco.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             EditorUtility.SetDirty(easyLoco);
+            return prefabPath;
+        }
+
+        // Sleeping installs as one nested prefab rather than as loose components on the host, so it
+        // stays a unit the user can drag onto another avatar by itself. Switching the feature off is
+        // then a single early return - the host is rebuilt from scratch on every build, so an avatar
+        // that had sleeping and turns it off simply comes back without the nested object.
+        private static void BuildSleep(EasyLoco easyLoco, GameObject host, string outputFolder)
+        {
+            if (easyLoco.sleep == null || !easyLoco.sleep.enabled)
+            {
+                return;
+            }
+
+            // Sleep clips live at the leaves of the DefaultSleepingFacing* trees, one per sleeping
+            // state. Registering them here lets ReplaceMotion's existing clone path rebuild those
+            // trees for this avatar.
+            var replacements = new Dictionary<string, Motion>();
+            var sideClip = AddSleepReplacements(replacements, easyLoco.sleep);
+
+            var controller = (AnimatorController)BuildController(SleepTemplatePath, outputFolder, "EasyLocoSleep.controller", replacements);
+            ApplySleepSideOffsets(controller, sideClip, outputFolder);
+            EditorUtility.SetDirty(controller);
+
+            var prefabPath = BuildSleepPrefab(controller, outputFolder);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
+            {
+                throw new FileNotFoundException("EasyLoco sleep prefab was not found after building.", prefabPath);
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, host.transform);
+            instance.name = EasyLocoConst.SleepObjectName;
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+        }
+
+        // The package prefab already carries everything about sleeping that does not depend on the
+        // avatar - the contact rig, the two toggles' parameters, and the Sleep sub-menu installer.
+        // Only the merged animator is avatar-specific, so the per-avatar copy is that prefab with
+        // its animator reference repointed at the generated controller.
+        //
+        // Built detached and saved before it is instantiated, the same as the outer host: a save
+        // that throws cannot leave a half-configured object under the avatar.
+        private static string BuildSleepPrefab(AnimatorController controller, string outputFolder)
+        {
+            var source = AssetDatabase.LoadAssetAtPath<GameObject>(EasyLocoConst.SleepPrefabPath);
+            if (source == null)
+            {
+                throw new FileNotFoundException("EasyLoco sleep prefab was not found.", EasyLocoConst.SleepPrefabPath);
+            }
+
+            var prefabPath = outputFolder + "/" + EasyLocoConst.SleepObjectName + ".prefab";
+            var host = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            try
+            {
+                host.name = EasyLocoConst.SleepObjectName;
+
+                // Appended, not Replace: the base locomotion controller already claimed the Base
+                // layer, and these layers only override it while the avatar is actually asleep.
+                EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, controller, MergeAnimatorMode.Append);
+
+                PrefabUtility.SaveAsPrefabAsset(host, prefabPath, out var saved);
+                if (!saved)
+                {
+                    throw new IOException($"Failed to save the EasyLoco sleep prefab to {prefabPath}");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
+
             return prefabPath;
         }
 
@@ -670,16 +743,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         private static void BuildIdlePoseMenu(GameObject host, List<StanceBuild> stances, string outputFolder)
         {
-            var mainMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(EasyLocoConst.MainMenuPath);
-            if (mainMenu == null)
-            {
-                throw new FileNotFoundException("EasyLoco main menu was not found.", EasyLocoConst.MainMenuPath);
-            }
-
             var menuStances = stances.Where(stance => stance.HasMenu).ToList();
             if (menuStances.Count == 0)
             {
-                RemoveIdleMenuInstaller(host, mainMenu);
                 return;
             }
 
@@ -706,7 +772,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             entry.controls.Add(MakeSubMenu("Idle Poses", root));
             EditorUtility.SetDirty(entry);
 
-            EnsureIdleMenuInstaller(host, entry, mainMenu);
+            EnsureSubMenuInstaller(host, entry, LoadMainMenu()); // nest the idle poses under EasyLocoMain
         }
 
         // A synced VRChat Float only carries -1..1, so pose N cannot be selected by its raw index:
@@ -784,10 +850,13 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(installer);
         }
 
-        private static void EnsureIdleMenuInstaller(GameObject host, VRCExpressionsMenu menuToAppend, VRCExpressionsMenu targetMenu)
+        // Matched on what it appends, not on its target: EasyLocoMain is the target of more than one
+        // sub-menu (the Sleep one, from the sleep prefab), so the target alone does not identify an
+        // installer.
+        private static void EnsureSubMenuInstaller(GameObject host, VRCExpressionsMenu menuToAppend, VRCExpressionsMenu targetMenu)
         {
             var installer = host.GetComponents<ModularAvatarMenuInstaller>()
-                .FirstOrDefault(component => component.installTargetMenu == targetMenu);
+                .FirstOrDefault(component => component.menuToAppend == menuToAppend);
 
             if (installer == null)
             {
@@ -795,18 +864,19 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             installer.menuToAppend = menuToAppend;
-            installer.installTargetMenu = targetMenu; // nest the idle poses under EasyLocoMain
+            installer.installTargetMenu = targetMenu;
             EditorUtility.SetDirty(installer);
         }
 
-        private static void RemoveIdleMenuInstaller(GameObject host, VRCExpressionsMenu targetMenu)
+        private static VRCExpressionsMenu LoadMainMenu()
         {
-            var installer = host.GetComponents<ModularAvatarMenuInstaller>()
-                .FirstOrDefault(component => component.installTargetMenu == targetMenu);
-            if (installer != null)
+            var menu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(EasyLocoConst.MainMenuPath);
+            if (menu == null)
             {
-                Object.DestroyImmediate(installer);
+                throw new FileNotFoundException("EasyLoco main menu was not found.", EasyLocoConst.MainMenuPath);
             }
+
+            return menu;
         }
 
         private static ModularAvatarParameters GetOrCreateMaParameters(GameObject host)
@@ -849,25 +919,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(maParameters);
         }
 
-        // Sleep mode is synced so remote viewers see the sleeping pose, but deliberately not saved:
-        // an avatar should never load back in already asleep.
-        private static void EnsureSleepModeParameter(GameObject host)
-        {
-            var maParameters = GetOrCreateMaParameters(host);
-            AddMaParameterIfMissing(maParameters, EasyLocoConst.SleepModeParam, ParameterSyncType.Bool, saved: false, localOnly: false, defaultValue: 0);
-            EditorUtility.SetDirty(maParameters);
-        }
-
-        // Feet lock is synced so remote viewers see the locked feet, but not saved: the FeetLock
-        // layer's parameter driver clears it whenever the avatar is upright, so it should always load
-        // back in the unlocked (standing) state.
-        private static void EnsureFeetLockParameter(GameObject host)
-        {
-            var maParameters = GetOrCreateMaParameters(host);
-            AddMaParameterIfMissing(maParameters, EasyLocoConst.FeetLockParam, ParameterSyncType.Bool, saved: false, localOnly: false, defaultValue: 0);
-            EditorUtility.SetDirty(maParameters);
-        }
-
         // Float to match the animator parameter the idle blend trees read (see EnsureFloatParameter).
         private static void EnsureSyncedFloatParameter(GameObject host, string name)
         {
@@ -876,36 +927,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(maParameters);
         }
 
-        // The sleep sensors are an authored prefab rather than something we build from code, so the
-        // radii and offsets stay hand-tunable. Kept as a live prefab instance so package-side
-        // tweaks reach avatars that were built earlier.
-        private static void EnsureSleepSensors(GameObject host)
-        {
-            var existing = host.transform.Find(EasyLocoConst.SleepSensorsObjectName);
-            if (existing != null)
-            {
-                return;
-            }
-
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EasyLocoConst.SleepSensorsPrefabPath);
-            if (prefab == null)
-            {
-                throw new FileNotFoundException("EasyLoco sleep sensor prefab was not found.", EasyLocoConst.SleepSensorsPrefabPath);
-            }
-
-            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            instance.name = EasyLocoConst.SleepSensorsObjectName;
-            instance.transform.SetParent(host.transform, false);
-            instance.transform.localPosition = Vector3.zero;
-            instance.transform.localRotation = Quaternion.identity;
-            instance.transform.localScale = Vector3.one;
-        }
-
-
-        private static void EnsureMergeAnimator(GameObject gameObject, VRCAvatarDescriptor.AnimLayerType layerType, RuntimeAnimatorController controller)
+        private static void EnsureMergeAnimator(GameObject gameObject, VRCAvatarDescriptor.AnimLayerType layerType, RuntimeAnimatorController controller, MergeAnimatorMode mode)
         {
             var mergeAnimator = gameObject.GetComponents<ModularAvatarMergeAnimator>()
-                .FirstOrDefault(component => component.layerType == layerType && component.mergeAnimatorMode == MergeAnimatorMode.Replace);
+                .FirstOrDefault(component => component.layerType == layerType && component.mergeAnimatorMode == mode);
 
             if (mergeAnimator == null)
             {
@@ -914,7 +939,7 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             mergeAnimator.animator = controller;
             mergeAnimator.layerType = layerType;
-            mergeAnimator.mergeAnimatorMode = MergeAnimatorMode.Replace;
+            mergeAnimator.mergeAnimatorMode = mode;
             mergeAnimator.pathMode = MergeAnimatorPathMode.Absolute;
             mergeAnimator.matchAvatarWriteDefaults = true;
             mergeAnimator.deleteAttachedAnimator = false;

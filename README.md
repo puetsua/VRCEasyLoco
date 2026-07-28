@@ -10,11 +10,12 @@ animator controllers. Installs through Modular Avatar.
 
 * **Idle poses** — swap the standing, crouching, and prone idle animations, and register extra
   poses that you can switch between from the expression menu at runtime.
-* **Sleeping** — a Sleep sub-menu with two toggles: *Sleep Loco* plays a sleeping pose while prone
-  (three clips blend by head orientation — facing up, facing down, on your side — detected from real
-  head tracking, and locomotion keeps working so you can still crawl), and *Feet Lock* pins both
-  feet to the pose so your standing legs don't drag it around. Both release automatically when you
-  stand up.
+* **Sleeping** *(optional — one checkbox in the Inspector)* — a Sleep sub-menu with two toggles:
+  *Sleep Loco* plays a sleeping pose while prone (three clips blend by head orientation — facing up,
+  facing down, on your side — detected from real head tracking, and locomotion keeps working so you
+  can still crawl), and *Feet Lock* pins both feet to the pose so your standing legs don't drag it
+  around. Both release automatically when you stand up. It builds as its own prefab, so you can
+  install just sleeping on another avatar.
 * **AFK** — per-posture AFK animations, with separate entering / looping / exiting clips for
   standing, crouching, and prone.
 
@@ -29,8 +30,6 @@ Every animation ships with a built-in default, so it works out of the box.
 The build produces a self-contained `GeneratedEasyLocoMA` prefab and installs it on your avatar.
 Rebuilding overwrites that prefab in place, so the installed instance updates with it. You can also
 drop the prefab onto a similar avatar by hand to reuse one build.
-
-See [Getting Started](Documentation~/getting-started.md) for the full walkthrough.
 
 ## Installation
 

@@ -13,6 +13,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         private SerializedProperty crouchPoses;
         private SerializedProperty pronePoses;
         private SerializedProperty sleep;
+        private SerializedProperty sleepEnabled;
         private SerializedProperty standAfk;
         private SerializedProperty crouchAfk;
         private SerializedProperty proneAfk;
@@ -36,6 +37,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         private bool showAfkHelp;
 
         private const float InfoButtonSize = 18f;
+        private const float HeaderToggleWidth = 16f;
 
         // Leaves room for the inspector's own padding and a scrollbar, so the banner never forces a
         // horizontal scroll.
@@ -54,6 +56,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             infoIcon ?? (infoIcon = new GUIContent(EditorGUIUtility.IconContent("console.infoicon").image,
                 "Show or hide the description for this section."));
 
+        private static readonly GUIContent SleepEnabledContent = new GUIContent(string.Empty,
+            "Install the sleeping locomotion. Off leaves the avatar with its plain prone idle and " +
+            "adds no sleep animator, parameters, menu, or sensors.");
+
         private void OnEnable()
         {
             showPoses = LoadFoldout(PosesFoldoutKey);
@@ -70,6 +76,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             crouchPoses = serializedObject.FindProperty(nameof(EasyLoco.crouchPoses));
             pronePoses = serializedObject.FindProperty(nameof(EasyLoco.pronePoses));
             sleep = serializedObject.FindProperty(nameof(EasyLoco.sleep));
+            sleepEnabled = sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.enabled));
             standAfk = serializedObject.FindProperty(nameof(EasyLoco.standAfk));
             crouchAfk = serializedObject.FindProperty(nameof(EasyLoco.crouchAfk));
             proneAfk = serializedObject.FindProperty(nameof(EasyLoco.proneAfk));
@@ -117,10 +124,19 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep, ref showSleepHelp);
+            showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep, ref showSleepHelp, sleepEnabled, SleepEnabledContent);
             if (showSleep)
             {
-                DrawHelp(showSleepHelp, "Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side (Left) is the authored pose - lying on the left side; the right side is mirrored from it automatically, and Feet Lock plays the same pose.");
+                DrawHelp(showSleepHelp, "Optional - the checkbox on this header installs it. Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side (Left) is the authored pose - lying on the left side; the right side is mirrored from it automatically, and Feet Lock plays the same pose.");
+
+                if (!sleepEnabled.boolValue)
+                {
+                    EditorGUILayout.HelpBox("Sleeping is off. The build installs no sleep animator, menu, parameters, or sensors.", MessageType.Info);
+                }
+
+                // The clips stay visible while off so a user can see what they would get back, but
+                // editing them would have no effect on the build until sleeping is switched on.
+                using (new EditorGUI.DisabledScope(!sleepEnabled.boolValue))
                 using (new EditorGUI.IndentLevelScope())
                 {
                     EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
@@ -167,12 +183,36 @@ namespace Puetsua.VRCEasyLoco.Editor
         // The header also carries an (i) button toggling the section's explanation, so the text is
         // there when wanted without permanently eating inspector height. Its state is remembered the
         // same way. The button sits outside the foldout's own rect so the two clicks never overlap.
-        private static bool DrawFoldout(string key, string label, bool expanded, ref bool helpShown)
+        //
+        // An optional section can pass its on/off property as <paramref name="toggle"/>; it draws as
+        // a checkbox left of the (i), so the state stays readable with the section collapsed. Its
+        // rect is carved out of the header the same way, so it never competes with the foldout click.
+        private static bool DrawFoldout(string key, string label, bool expanded, ref bool helpShown, SerializedProperty toggle = null, GUIContent toggleContent = null)
         {
             var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight + 4f,
                 EditorStyles.foldoutHeader);
             var buttonRect = new Rect(rect.xMax - InfoButtonSize, rect.y + 2f, InfoButtonSize, InfoButtonSize);
-            var foldoutRect = new Rect(rect.x, rect.y, rect.width - InfoButtonSize, rect.height);
+
+            var toggleSpace = 0f;
+            if (toggle != null)
+            {
+                toggleSpace = HeaderToggleWidth + 2f;
+                var toggleRect = new Rect(buttonRect.x - toggleSpace, rect.y + 2f, HeaderToggleWidth, InfoButtonSize);
+
+                // GUI.Toggle rather than PropertyField: the rect is only wide enough for the
+                // checkbox, and PropertyField would spend it on the prefix label instead. The
+                // content carries a tooltip and no text, so the box still explains itself on hover.
+                EditorGUI.BeginProperty(toggleRect, toggleContent, toggle);
+                EditorGUI.BeginChangeCheck();
+                var toggled = GUI.Toggle(toggleRect, toggle.boolValue, toggleContent ?? GUIContent.none, EditorStyles.toggle);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    toggle.boolValue = toggled;
+                }
+                EditorGUI.EndProperty();
+            }
+
+            var foldoutRect = new Rect(rect.x, rect.y, rect.width - InfoButtonSize - toggleSpace, rect.height);
 
             var value = EditorGUI.Foldout(foldoutRect, expanded, label, true, EditorStyles.foldoutHeader);
             if (value != expanded)

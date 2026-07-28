@@ -55,6 +55,17 @@ namespace Puetsua.VRCEasyLoco
         [Serializable]
         public class SleepSet
         {
+            /// <summary>
+            /// Whether the sleeping locomotion is installed at all. With this off the build skips the
+            /// sleep animator, its parameters, the sleep sub-menu, and the head-orientation contact
+            /// rig - the avatar keeps the plain prone idle.
+            ///
+            /// Defaults to true so components authored before sleeping became optional keep working:
+            /// their serialized data carries no value for this field, and Unity leaves the field
+            /// initializer's value in place when a saved object has no entry for it.
+            /// </summary>
+            public bool enabled = true;
+
             public AnimationClip up;
             public AnimationClip down;
             public AnimationClip side;

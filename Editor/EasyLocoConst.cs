@@ -18,22 +18,45 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string MenusFolder = PackageRoot + "/Menus";
         public const string MainMenuPath = MenusFolder + "/EasyLocoMain.asset";
 
+        // The Sleep sub-menu is nested under EasyLocoMain by a menu installer on the sleep prefab
+        // rather than sitting in EasyLocoMain's controls, so a build with sleeping switched off
+        // leaves the prefab out and the entry never appears. Recorded here for the reader - the
+        // wiring lives on the prefab, so nothing in code loads this path.
+        public const string SleepEntryMenuPath = MenusFolder + "/EasyLocoSleepEntry.asset";
+
         // Header artwork drawn at the top of the component inspector. Authored at 400x80; the
         // inspector scales it down to the panel width and never draws it larger than that.
         public const string TexturesFolder = PackageRoot + "/Textures";
         public const string BannerTexturePath = TexturesFolder + "/easylocobanner.png";
 
-        // Contact rig that reports head orientation while sleeping. Instantiated under the
-        // generated host; the prefab carries its own MA parameter registrations.
-        public const string SleepSensorsPrefabPath = PackageRoot + "/Prefabs/SleepLoco.prefab";
-        public const string SleepSensorsObjectName = "SleepLoco";
+        // The whole sleep feature as one droppable unit: the contact rig that reports head
+        // orientation, plus the Modular Avatar components that install sleeping - its parameters,
+        // its sub-menu, and the animator appended over the base locomotion.
+        //
+        // Only the animator is avatar-specific, so the build saves a per-avatar copy of this prefab
+        // with that one reference repointed at the generated controller. That copy is what gets
+        // nested under the generated host, and it can be dropped onto another avatar on its own.
+        //
+        // Its Merge Animator carries Layer Priority 100. Being appended only guarantees the sleep
+        // layers land after EasyLoco's own base locomotion (Modular Avatar always merges the Replace
+        // first); among appended layers the order is otherwise hierarchy order, so any other tool
+        // adding a Base layer at the default priority could land after the sleeping pose and
+        // override it. The positive priority puts sleeping last on purpose - it plays an empty clip
+        // whenever the avatar is awake, so sitting on top costs nothing. Anything that genuinely has
+        // to win over the sleeping pose needs a priority above this.
+        public const string SleepPrefabPath = PackageRoot + "/Prefabs/EasyLocoSleep.prefab";
+        public const string SleepObjectName = "EasyLocoSleep";
 
-        // Drives the Sleeping state inside the Base controller's Prone sub-state machine. Set from
+        // The two sleep toggles. Both are registered by the Modular Avatar Parameters component on
+        // the sleep prefab, so no code adds them - these names exist to keep the prefab, the menu
+        // assets, and the sleep template describing the same contract.
+        //
+        // Drives the Sleeping state inside the sleep controller's Prone sub-state machine. Set from
         // the Sleep Loco toggle in the Sleep sub-menu; the state also releases on Upright, so
         // standing up leaves sleep even while this is still true.
         public const string SleepModeParam = "EasyLocoSleepMode";
 
-        // Drives the FeetLock layer in the Base controller, locking both feet to the animated pose
+        // Drives the FeetLock layer in the sleep controller, locking both feet to the animated pose
         // (VRC tracking control). Set from the Feet Lock toggle in the Sleep sub-menu; it only
         // engages while [[SleepModeParam]] is on and Upright is below 0.43 (lying down asleep). The
         // layer releases when sleep ends, when the toggle is cleared, or when Upright passes 0.43 -
@@ -63,7 +86,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string ProneLyingDownClip = IdleAnimationsFolder + "/IdleProneLyingDown.anim";
 
         // The sleep pose clips sitting at the leaves of the DefaultSleepingFacing{Up,Down} trees.
-        // Each is the motion of one Sleeping state in the Base controller, and the states switch on
+        // Each is the motion of one Sleeping state in the sleep controller, and the states switch on
         // the facing parameters. Swapping these clips by name lets the existing blend-tree clone
         // path rebuild those trees with the user's clips.
         //

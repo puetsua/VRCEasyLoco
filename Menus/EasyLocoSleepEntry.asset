@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -340790334, guid: 67cc4cb7839cd3741b63733d5adf0442, type: 3}
-  m_Name: EasyLocoMain
-  m_EditorClassIdentifier: 
+  m_Name: EasyLocoSleepEntry
+  m_EditorClassIdentifier:
   Parameters: {fileID: 11400000, guid: 69062c970c9dadb499cbefa32d2d1861, type: 2}
   controls:
-  - name: Action
+  - name: Sleep
     icon: {fileID: 0}
     type: 103
     parameter:
-      name: 
+      name:
     value: 1
     style: 0
-    subMenu: {fileID: 11400000, guid: c7e78af7057ff1e45b6b69fbbca38264, type: 2}
+    subMenu: {fileID: 11400000, guid: dbcf2d091bcd2b84b8e0faf445c431d1, type: 2}
     subParameters: []
     labels: []
