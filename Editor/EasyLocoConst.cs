@@ -94,33 +94,47 @@ namespace Puetsua.VRCEasyLoco.Editor
         // the facing parameters. Swapping these clips by name lets the existing blend-tree clone
         // path rebuild those trees with the user's clips.
         //
-        // One on-side pose covers every side and both branches. SleepSide lies on the left (right
-        // side up, so it plays at EasyLocoFacingRight) and every tree references it a second time
-        // with the child's Mirror flag set for the other side. The clips are humanoid, so Unity
-        // mirrors the pose exactly - a user overriding the side pose gets all four cases from it.
+        // The on-side pose sits in every tree twice - once plain, once with the child's Mirror flag
+        // set - so one pose covers both sides. SleepSide lies on the left (right side up, so it
+        // plays at EasyLocoFacingRight) and the clips are humanoid, so Unity mirrors it exactly.
         //
-        // The feet-locked trees (DefaultSleepingFacing*FeetLock, played while the Feet Lock toggle
-        // holds both feet on the floor) play that same pose. Feet Lock puts both feet on Animation,
-        // so the clip is what places them; if that ever needs its own feet-planted shape, derive it
-        // from the side clip at build time rather than shipping more clips to keep in sync.
+        // Each tree holds its own on-side placeholder rather than sharing one clip, because the
+        // slots differ in Root Transform Rotation: the free branch sits halfway between its facing
+        // clips (SleepUp at 0, SleepDown at -180), while the feet-locked branch matches its facing
+        // clip, since Feet Lock puts both feet on Animation and they land where that pose puts them.
+        // Those offsets live in the placeholder assets, not in code - so a placeholder can be
+        // re-yawed, re-posed, or swapped for a new motion in the Inspector and the build follows,
+        // and the tree's own positions and mirror flags are never touched by the builder.
         //
         // Every clip file is named after its target, so the built-in paths follow from these names.
         public const string SleepUpTarget = "SleepUp";
         public const string SleepDownTarget = "SleepDown";
-        public const string SleepSideTarget = "SleepSide";
-
-        // The four sleeping blend trees. The builder needs them by name to give each one's on-side
-        // children the Root Transform Rotation offset that slot expects - see
-        // SleepSideOrientationOffsets in the builder.
-        public const string SleepFacingUpTree = "DefaultSleepingFacingUp";
-        public const string SleepFacingDownTree = "DefaultSleepingFacingDown";
-        public const string SleepFacingUpFeetLockTree = "DefaultSleepingFacingUpFeetLock";
-        public const string SleepFacingDownFeetLockTree = "DefaultSleepingFacingDownFeetLock";
+        public const string SleepSideFacingUpTarget = "SleepSideFacingUp";
+        public const string SleepSideFacingDownTarget = "SleepSideFacingDown";
+        public const string SleepSideFacingUpFeetLockTarget = "SleepSideFacingUpFeetLock";
+        public const string SleepSideFacingDownFeetLockTarget = "SleepSideFacingDownFeetLock";
 
         // Built-in sleep clips used to prefill a freshly added component.
         public const string SleepUpClip = SleepAnimationsFolder + "/" + SleepUpTarget + ".anim";
         public const string SleepDownClip = SleepAnimationsFolder + "/" + SleepDownTarget + ".anim";
-        public const string SleepSideClip = SleepAnimationsFolder + "/" + SleepSideTarget + ".anim";
+
+        // The reference on-side pose. Not in any tree itself - it is what the placeholders were cut
+        // from, and what the component's On Side slot defaults to.
+        public const string SleepSideClip = SleepAnimationsFolder + "/SleepSide.anim";
+
+        // The per-slot placeholders, in the order the builder replaces them.
+        public static readonly string[] SleepSideTargets =
+        {
+            SleepSideFacingUpTarget,
+            SleepSideFacingDownTarget,
+            SleepSideFacingUpFeetLockTarget,
+            SleepSideFacingDownFeetLockTarget,
+        };
+
+        public static string SleepSidePlaceholderClip(string target)
+        {
+            return SleepAnimationsFolder + "/" + target + ".anim";
+        }
 
         // AFK is branched by posture; each stance state is named "Afk <Stance> <Stage>". The builder
         // swaps these states' motions with the component's per-stance clips.
