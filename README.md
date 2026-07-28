@@ -38,10 +38,15 @@ the sleeping prefab with the clips you set and appends it to the avatar. Once it
 button reads **Remove Sleep Locomotion** and takes it back off; to pick up a clip change, remove and
 build again.
 
-The Sleep entry lands under the `EasyLoco` menu when the avatar already has the main prefab, and at
-the root menu when it does not — so sleeping is usable on an avatar running nothing else from
-EasyLoco. Build the main prefab after sleeping and you will want to press the sleep button again, so
-the entry moves under `EasyLoco`.
+Sleeping goes inside `GeneratedEasyLocoMA`, so everything EasyLoco installs sits under one object,
+and its menu entry nests under `EasyLoco`. On an avatar that has never run the main build there is no
+such object, so it goes beside the descriptor instead and its entry goes to the root menu — sleeping
+is usable on an avatar running nothing else from EasyLoco. Build the main prefab after sleeping and
+you will want to press the sleep button again, which moves it into place.
+
+Because it goes on as an added child of the `GeneratedEasyLocoMA` instance, it survives rebuilding
+that prefab but does not travel with it: dropping `GeneratedEasyLocoMA.prefab` onto another avatar
+brings the locomotion, not sleeping. Drop `EasyLocoSleep.prefab` alongside it for that.
 
 ## Installation
 

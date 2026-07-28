@@ -36,8 +36,10 @@ namespace Puetsua.VRCEasyLoco.Editor
         //
         // Only the animator is avatar-specific, so the build saves a per-avatar copy of this prefab
         // with that one reference repointed at the generated controller. That copy is what the sleep
-        // button puts on the avatar, beside the generated host rather than inside it - sleeping is
-        // its own module, and Build leaves it alone. It can equally be dropped onto another avatar.
+        // button puts on the avatar - inside the generated host, so everything EasyLoco installs sits
+        // under one object, or beside the descriptor when the avatar has no host yet. It goes on as
+        // an added child of the host instance, which survives rebuilding the host prefab but does not
+        // travel with that prefab: dropping the host on another avatar does not bring sleeping.
         //
         // Its Merge Animator carries Layer Priority 100. Being appended only guarantees the sleep
         // layers land after EasyLoco's own base locomotion (Modular Avatar always merges the Replace

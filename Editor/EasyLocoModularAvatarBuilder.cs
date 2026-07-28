@@ -116,26 +116,47 @@ namespace Puetsua.VRCEasyLoco.Editor
             var outputFolder = GetOutputFolder(avatar);
             EnsureFolder(outputFolder);
 
-            // The Sleep entry belongs under the EasyLoco menu when this avatar has one, and at the
-            // root when it does not - installed against a target that is not in the avatar's menu,
-            // Modular Avatar drops the installer without a word and sleeping ends up with no
-            // toggles. Rebuilding sleeping after a full build is what moves it back under EasyLoco.
-            var nestUnderMainMenu = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName) != null;
+            // One condition decides both where the object goes and where its menu entry goes, which
+            // is what keeps the two consistent: inside the host means the EasyLoco menu is installed
+            // and the Sleep entry can nest under it; loose on the avatar means it is not, and the
+            // entry has to go to the root menu instead. Installed against a target that is not in
+            // the avatar's menu, Modular Avatar drops the installer without a word and sleeping ends
+            // up with no toggles at all.
+            var host = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
+            var parent = host != null ? host : easyLoco.transform;
 
             var controller = BuildSleepController(easyLoco, outputFolder);
-            var prefabPath = BuildSleepPrefab(controller, outputFolder, nestUnderMainMenu);
+            var prefabPath = BuildSleepPrefab(controller, outputFolder, nestUnderMainMenu: host != null);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            InstallPrefabInstance(easyLoco.transform, EasyLocoConst.SleepObjectName, prefabPath, "Build EasyLoco Sleep Locomotion");
+            // Running the main build after installing sleeping moves where it belongs, so a copy
+            // left in the other place has to go or the avatar would carry two.
+            var misplaced = FindSleepLocomotion(easyLoco);
+            if (misplaced != null && misplaced.parent != parent)
+            {
+                Undo.DestroyObjectImmediate(misplaced.gameObject);
+            }
+
+            InstallPrefabInstance(parent, EasyLocoConst.SleepObjectName, prefabPath, "Build EasyLoco Sleep Locomotion");
             return prefabPath;
+        }
+
+        // Looked for in both places: sleeping sits inside the generated host when there is one and
+        // beside the descriptor when there is not, and the host can appear or disappear between
+        // installing sleeping and taking it off again.
+        private static Transform FindSleepLocomotion(EasyLoco easyLoco)
+        {
+            var host = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
+            var nested = host != null ? host.Find(EasyLocoConst.SleepObjectName) : null;
+            return nested != null ? nested : easyLoco.transform.Find(EasyLocoConst.SleepObjectName);
         }
 
         /// <summary>Whether the sleeping module is currently installed on this avatar.</summary>
         public static bool HasSleepLocomotion(EasyLoco easyLoco)
         {
-            return easyLoco != null && easyLoco.transform.Find(EasyLocoConst.SleepObjectName) != null;
+            return easyLoco != null && FindSleepLocomotion(easyLoco) != null;
         }
 
         /// <summary>
@@ -150,7 +171,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 return false;
             }
 
-            var existing = easyLoco.transform.Find(EasyLocoConst.SleepObjectName);
+            var existing = FindSleepLocomotion(easyLoco);
             if (existing == null)
             {
                 return false;

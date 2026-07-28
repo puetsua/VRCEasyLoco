@@ -32,9 +32,14 @@
 **Build and append Sleep Locomotion**：它會用你設定的動畫產生睡覺 prefab 並疊加到 avatar 上。裝好之後
 同一個按鈕會變成 **Remove Sleep Locomotion**，可以再把它移除；改了動畫要更新的話，先移除再重新建置。
 
-avatar 上已有主 prefab 時，睡覺選單會掛在 `EasyLoco` 選單底下；沒有的話則掛在根選單，所以就算完全
-沒裝 EasyLoco 的其他功能，睡覺一樣能用。如果是先裝睡覺、之後才建置主 prefab，記得再按一次睡覺按鈕，
-選單才會移到 `EasyLoco` 底下。
+睡覺會裝在 `GeneratedEasyLocoMA` 底下，讓 EasyLoco 安裝的東西集中在同一個物件下，選單也會掛在
+`EasyLoco` 底下。若 avatar 從未建置過主 prefab，就沒有這個物件，睡覺會直接裝在 descriptor 旁邊、
+選單掛在根選單——所以就算完全沒裝 EasyLoco 的其他功能，睡覺一樣能用。如果是先裝睡覺、之後才建置主
+prefab，記得再按一次睡覺按鈕，它才會移到正確位置。
+
+由於它是以「新增子物件」的形式掛在 `GeneratedEasyLocoMA` 實例上，重新建置該 prefab 不會弄丟它，但它
+也不會跟著 prefab 走：把 `GeneratedEasyLocoMA.prefab` 拖到其他 avatar 只會帶過去移動功能，不含睡覺。
+需要的話請另外把 `EasyLocoSleep.prefab` 一起拖過去。
 
 ## 安裝方式
 
