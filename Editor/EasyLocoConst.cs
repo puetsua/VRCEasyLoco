@@ -18,10 +18,11 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string MenusFolder = PackageRoot + "/Menus";
         public const string MainMenuPath = MenusFolder + "/EasyLocoMain.asset";
 
-        // The Sleep sub-menu is nested under EasyLocoMain by a menu installer on the sleep prefab
-        // rather than sitting in EasyLocoMain's controls, so a build with sleeping switched off
-        // leaves the prefab out and the entry never appears. Recorded here for the reader - the
-        // wiring lives on the prefab, so nothing in code loads this path.
+        // The Sleep sub-menu is installed by a menu installer on the sleep prefab rather than sitting
+        // in EasyLocoMain's controls, so an avatar without the sleeping module never shows the entry.
+        // The build retargets that installer: under EasyLocoMain when the avatar has the main prefab,
+        // at the root menu when it does not. Recorded here for the reader - the menu asset itself is
+        // referenced from the prefab, so nothing in code loads this path.
         public const string SleepEntryMenuPath = MenusFolder + "/EasyLocoSleepEntry.asset";
 
         // Header artwork drawn at the top of the component inspector. Authored at 400x80; the
@@ -34,8 +35,9 @@ namespace Puetsua.VRCEasyLoco.Editor
         // its sub-menu, and the animator appended over the base locomotion.
         //
         // Only the animator is avatar-specific, so the build saves a per-avatar copy of this prefab
-        // with that one reference repointed at the generated controller. That copy is what gets
-        // nested under the generated host, and it can be dropped onto another avatar on its own.
+        // with that one reference repointed at the generated controller. That copy is what the sleep
+        // button puts on the avatar, beside the generated host rather than inside it - sleeping is
+        // its own module, and Build leaves it alone. It can equally be dropped onto another avatar.
         //
         // Its Merge Animator carries Layer Priority 100. Being appended only guarantees the sleep
         // layers land after EasyLoco's own base locomotion (Modular Avatar always merges the Replace

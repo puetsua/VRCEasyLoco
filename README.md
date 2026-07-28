@@ -10,12 +10,13 @@ animator controllers. Installs through Modular Avatar.
 
 * **Idle poses** — swap the standing, crouching, and prone idle animations, and register extra
   poses that you can switch between from the expression menu at runtime.
-* **Sleeping** *(optional — one checkbox in the Inspector)* — a Sleep sub-menu with two toggles:
-  *Sleep Loco* plays a sleeping pose while prone (three clips blend by head orientation — facing up,
-  facing down, on your side — detected from real head tracking, and locomotion keeps working so you
-  can still crawl), and *Feet Lock* pins both feet to the pose so your standing legs don't drag it
-  around. Both release automatically when you stand up. It builds as its own prefab, so you can
-  install just sleeping on another avatar.
+* **Sleeping** *(a separate module — its own button, its own prefab)* — a Sleep sub-menu with two
+  toggles: *Sleep Loco* plays a sleeping pose while prone (three clips blend by head orientation —
+  facing up, facing down, on your side — detected from real head tracking, and locomotion keeps
+  working so you can still crawl), and *Feet Lock* pins both feet to the pose so your standing legs
+  don't drag it around. Both release automatically when you stand up. It appends over whatever base
+  locomotion the avatar already has, so you can install just sleeping — with or without the rest of
+  EasyLoco.
 * **AFK** — per-posture AFK animations, with separate entering / looping / exiting clips for
   standing, crouching, and prone.
 
@@ -31,10 +32,16 @@ The build produces a self-contained `GeneratedEasyLocoMA` prefab and installs it
 Rebuilding overwrites that prefab in place, so the installed instance updates with it. You can also
 drop the prefab onto a similar avatar by hand to reuse one build.
 
-Sleeping is also installable on its own: **Add Sleeping Only**, at the bottom of the Sleep section,
-builds just the sleeping prefab with the clips you set and puts it on the avatar — locomotion, idle
-poses, and AFK are left alone. Its Sleep menu goes to the avatar's root, and a later
-**Build Modular Avatar** covers sleeping too and replaces what the button added.
+Sleeping is a module of its own and **Build Modular Avatar** does not touch it. Use
+**Build and append Sleep Locomotion**, at the top of the Module - Sleep Animations section: it builds
+the sleeping prefab with the clips you set and appends it to the avatar. Once it is on, the same
+button reads **Remove Sleep Locomotion** and takes it back off; to pick up a clip change, remove and
+build again.
+
+The Sleep entry lands under the `EasyLoco` menu when the avatar already has the main prefab, and at
+the root menu when it does not — so sleeping is usable on an avatar running nothing else from
+EasyLoco. Build the main prefab after sleeping and you will want to press the sleep button again, so
+the entry moves under `EasyLoco`.
 
 ## Installation
 

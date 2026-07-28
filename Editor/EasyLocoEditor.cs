@@ -13,7 +13,6 @@ namespace Puetsua.VRCEasyLoco.Editor
         private SerializedProperty crouchPoses;
         private SerializedProperty pronePoses;
         private SerializedProperty sleep;
-        private SerializedProperty sleepEnabled;
         private SerializedProperty standAfk;
         private SerializedProperty crouchAfk;
         private SerializedProperty proneAfk;
@@ -37,7 +36,6 @@ namespace Puetsua.VRCEasyLoco.Editor
         private bool showAfkHelp;
 
         private const float InfoButtonSize = 18f;
-        private const float HeaderToggleWidth = 16f;
 
         // Leaves room for the inspector's own padding and a scrollbar, so the banner never forces a
         // horizontal scroll.
@@ -56,10 +54,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             infoIcon ?? (infoIcon = new GUIContent(EditorGUIUtility.IconContent("console.infoicon").image,
                 "Show or hide the description for this section."));
 
-        private static readonly GUIContent SleepEnabledContent = new GUIContent(string.Empty,
-            "Install the sleeping locomotion. Off leaves the avatar with its plain prone idle and " +
-            "adds no sleep animator, parameters, menu, or sensors.");
-
         private void OnEnable()
         {
             showPoses = LoadFoldout(PosesFoldoutKey);
@@ -76,7 +70,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             crouchPoses = serializedObject.FindProperty(nameof(EasyLoco.crouchPoses));
             pronePoses = serializedObject.FindProperty(nameof(EasyLoco.pronePoses));
             sleep = serializedObject.FindProperty(nameof(EasyLoco.sleep));
-            sleepEnabled = sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.enabled));
             standAfk = serializedObject.FindProperty(nameof(EasyLoco.standAfk));
             crouchAfk = serializedObject.FindProperty(nameof(EasyLoco.crouchAfk));
             proneAfk = serializedObject.FindProperty(nameof(EasyLoco.proneAfk));
@@ -133,31 +126,25 @@ namespace Puetsua.VRCEasyLoco.Editor
                 DrawAfkSet("Prone AFK", proneAfk);
             }
 
-            // Last of the sections: sleeping is the one optional feature, and it installs as its own
-            // prefab rather than as part of the locomotion the sections above describe.
+            // Ruled off from the sections above: everything before this is the locomotion that Build
+            // Modular Avatar installs, while sleeping is a module of its own - its own prefab, put on
+            // the avatar by its own button.
             EditorGUILayout.Space();
-            showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep, ref showSleepHelp, sleepEnabled, SleepEnabledContent);
+            DrawSeparator();
+            EditorGUILayout.Space();
+
+            showSleep = DrawFoldout(SleepFoldoutKey, "Module - Sleep Animations", showSleep, ref showSleepHelp);
             if (showSleep)
             {
-                DrawHelp(showSleepHelp, "Optional - the checkbox on this header installs it. Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side (Left) is the authored pose - lying on the left side; the right side is mirrored from it automatically, and Feet Lock plays the same pose.");
+                DrawHelp(showSleepHelp, "Installed separately, by the button below - Build Modular Avatar does not touch sleeping. Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side (Left) is the authored pose - lying on the left side; the right side is mirrored from it automatically, and Feet Lock plays the same pose.");
 
-                if (!sleepEnabled.boolValue)
+                DrawSleepBuild(easyLoco, hasAvatar);
+
+                using (new EditorGUI.IndentLevelScope())
                 {
-                    EditorGUILayout.HelpBox("Sleeping is off. The build installs no sleep animator, menu, parameters, or sensors.", MessageType.Info);
-                }
-
-                // The clips stay visible while off so a user can see what they would get back, but
-                // editing them would have no effect on the build until sleeping is switched on.
-                using (new EditorGUI.DisabledScope(!sleepEnabled.boolValue))
-                {
-                    using (new EditorGUI.IndentLevelScope())
-                    {
-                        EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
-                        EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
-                        EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side (Left)"));
-                    }
-
-                    DrawSleepOnlyBuild(easyLoco, hasAvatar);
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side (Left)"));
                 }
             }
 
@@ -189,36 +176,12 @@ namespace Puetsua.VRCEasyLoco.Editor
         // The header also carries an (i) button toggling the section's explanation, so the text is
         // there when wanted without permanently eating inspector height. Its state is remembered the
         // same way. The button sits outside the foldout's own rect so the two clicks never overlap.
-        //
-        // An optional section can pass its on/off property as <paramref name="toggle"/>; it draws as
-        // a checkbox left of the (i), so the state stays readable with the section collapsed. Its
-        // rect is carved out of the header the same way, so it never competes with the foldout click.
-        private static bool DrawFoldout(string key, string label, bool expanded, ref bool helpShown, SerializedProperty toggle = null, GUIContent toggleContent = null)
+        private static bool DrawFoldout(string key, string label, bool expanded, ref bool helpShown)
         {
             var rect = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight + 4f,
                 EditorStyles.foldoutHeader);
             var buttonRect = new Rect(rect.xMax - InfoButtonSize, rect.y + 2f, InfoButtonSize, InfoButtonSize);
-
-            var toggleSpace = 0f;
-            if (toggle != null)
-            {
-                toggleSpace = HeaderToggleWidth + 2f;
-                var toggleRect = new Rect(buttonRect.x - toggleSpace, rect.y + 2f, HeaderToggleWidth, InfoButtonSize);
-
-                // GUI.Toggle rather than PropertyField: the rect is only wide enough for the
-                // checkbox, and PropertyField would spend it on the prefix label instead. The
-                // content carries a tooltip and no text, so the box still explains itself on hover.
-                EditorGUI.BeginProperty(toggleRect, toggleContent, toggle);
-                EditorGUI.BeginChangeCheck();
-                var toggled = GUI.Toggle(toggleRect, toggle.boolValue, toggleContent ?? GUIContent.none, EditorStyles.toggle);
-                if (EditorGUI.EndChangeCheck())
-                {
-                    toggle.boolValue = toggled;
-                }
-                EditorGUI.EndProperty();
-            }
-
-            var foldoutRect = new Rect(rect.x, rect.y, rect.width - InfoButtonSize - toggleSpace, rect.height);
+            var foldoutRect = new Rect(rect.x, rect.y, rect.width - InfoButtonSize, rect.height);
 
             var value = EditorGUI.Foldout(foldoutRect, expanded, label, true, EditorStyles.foldoutHeader);
             if (value != expanded)
@@ -241,6 +204,14 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             return value;
+        }
+
+        private static void DrawSeparator()
+        {
+            var rect = EditorGUILayout.GetControlRect(false, 1f);
+            EditorGUI.DrawRect(rect, EditorGUIUtility.isProSkin
+                ? new Color(0.15f, 0.15f, 0.15f)
+                : new Color(0.6f, 0.6f, 0.6f));
         }
 
         private static void DrawHelp(bool shown, string text)
@@ -330,32 +301,41 @@ namespace Puetsua.VRCEasyLoco.Editor
             return list;
         }
 
-        // Sleeping is the one part that installs as a prefab of its own, so it is also the one part
-        // that can be installed alone - useful for an avatar that wants the sleeping pose but not
-        // EasyLoco's locomotion, and for carrying a customised set of clips to another avatar. The
-        // generated prefab is pinged afterwards so it is easy to find and drag.
-        private void DrawSleepOnlyBuild(EasyLoco easyLoco, bool hasAvatar)
+        // Sleeping installs as a prefab of its own, appended over whatever base locomotion the avatar
+        // already has - so it is built on its own button instead of by Build Modular Avatar. Useful
+        // for an avatar that wants the sleeping pose but not EasyLoco's locomotion, and for carrying
+        // a customised set of clips to another avatar; the generated prefab is pinged afterwards so
+        // it is easy to find and drag.
+        // One button, because the two actions are the two halves of the same switch: with the module
+        // on the avatar the only thing left to offer is taking it off. Rebuilding after a clip change
+        // means Remove then Build, which also re-picks where the Sleep menu belongs.
+        private void DrawSleepBuild(EasyLoco easyLoco, bool hasAvatar)
         {
-            EditorGUILayout.Space();
+            var installed = EasyLocoModularAvatarBuilder.HasSleepLocomotion(easyLoco);
+
             using (new EditorGUI.DisabledScope(!hasAvatar))
             {
-                if (GUILayout.Button("Add Sleeping Only"))
+                if (GUILayout.Button(installed ? "Remove Sleep Locomotion" : "Build and append Sleep Locomotion"))
                 {
                     serializedObject.ApplyModifiedProperties();
-                    BuildSleepOnly(easyLoco);
+                    if (installed)
+                    {
+                        EasyLocoModularAvatarBuilder.RemoveSleepLocomotion(easyLoco);
+                    }
+                    else
+                    {
+                        BuildSleepLocomotion(easyLoco);
+                    }
                     serializedObject.Update();
                 }
             }
-
-            EditorGUILayout.HelpBox("Installs just the sleeping prefab, with the clips set above, onto this avatar. "
-                + "Build Modular Avatar covers sleeping too and replaces what this adds.", MessageType.None);
         }
 
-        private static void BuildSleepOnly(EasyLoco easyLoco)
+        private static void BuildSleepLocomotion(EasyLoco easyLoco)
         {
             try
             {
-                var path = EasyLocoModularAvatarBuilder.BuildSleepOnly(easyLoco);
+                var path = EasyLocoModularAvatarBuilder.BuildSleepLocomotion(easyLoco);
                 var prefab = AssetDatabase.LoadAssetAtPath<Object>(path);
                 if (prefab != null)
                 {

@@ -87,25 +87,20 @@ namespace Puetsua.VRCEasyLoco.Editor
                 Object.DestroyImmediate(host);
             }
 
-            // The full build nests its own sleep object inside the host, so a standalone one left by
-            // "Add Sleeping Only" would be a second copy: two Base merges of the same controller and
-            // the Sleep entry listed twice in the menu. The component's checkbox is what decides
-            // whether this avatar sleeps, so the loose copy always goes.
-            RemoveStandaloneSleep(easyLoco);
-
             InstallPrefabInstance(easyLoco.transform, EasyLocoConst.GeneratedObjectName, prefabPath, "Build EasyLoco Modular Avatar");
             return prefabPath;
         }
 
         /// <summary>
-        /// Builds only the sleeping half - the generated controller carrying whatever clips the
-        /// component overrides, and the prefab that installs it - and puts an instance on the avatar
-        /// next to the descriptor. Returns the prefab's asset path.
+        /// Builds the sleeping locomotion - the generated controller carrying whatever clips the
+        /// component overrides, and the prefab that appends it over the avatar's base layer - and
+        /// puts an instance on the avatar next to the descriptor. Returns the prefab's asset path.
         ///
-        /// For avatars that want sleeping without the rest of EasyLoco: the prefab is self-contained,
-        /// so it can equally be dragged onto another avatar. A later full build supersedes it.
+        /// Deliberately separate from <see cref="Build"/>: sleeping is the one part that installs as
+        /// a self-contained prefab, so it is appended on demand rather than baked into every build.
+        /// The prefab can equally be dragged onto another avatar.
         /// </summary>
-        public static string BuildSleepOnly(EasyLoco easyLoco)
+        public static string BuildSleepLocomotion(EasyLoco easyLoco)
         {
             if (easyLoco == null)
             {
@@ -118,31 +113,51 @@ namespace Puetsua.VRCEasyLoco.Editor
                 throw new System.InvalidOperationException("EasyLoco must be on the same GameObject as the VRCAvatarDescriptor.");
             }
 
-            if (easyLoco.sleep == null || !easyLoco.sleep.enabled)
-            {
-                throw new System.InvalidOperationException("Sleeping is switched off. Turn on the checkbox in the Sleep Animations header first.");
-            }
-
             var outputFolder = GetOutputFolder(avatar);
             EnsureFolder(outputFolder);
 
+            // The Sleep entry belongs under the EasyLoco menu when this avatar has one, and at the
+            // root when it does not - installed against a target that is not in the avatar's menu,
+            // Modular Avatar drops the installer without a word and sleeping ends up with no
+            // toggles. Rebuilding sleeping after a full build is what moves it back under EasyLoco.
+            var nestUnderMainMenu = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName) != null;
+
             var controller = BuildSleepController(easyLoco, outputFolder);
-            var prefabPath = BuildSleepPrefab(controller, outputFolder, standalone: true);
+            var prefabPath = BuildSleepPrefab(controller, outputFolder, nestUnderMainMenu);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            InstallPrefabInstance(easyLoco.transform, EasyLocoConst.SleepObjectName, prefabPath, "Add EasyLoco Sleeping");
+            InstallPrefabInstance(easyLoco.transform, EasyLocoConst.SleepObjectName, prefabPath, "Build EasyLoco Sleep Locomotion");
             return prefabPath;
         }
 
-        private static void RemoveStandaloneSleep(EasyLoco easyLoco)
+        /// <summary>Whether the sleeping module is currently installed on this avatar.</summary>
+        public static bool HasSleepLocomotion(EasyLoco easyLoco)
         {
-            var existing = easyLoco.transform.Find(EasyLocoConst.SleepObjectName);
-            if (existing != null)
+            return easyLoco != null && easyLoco.transform.Find(EasyLocoConst.SleepObjectName) != null;
+        }
+
+        /// <summary>
+        /// Takes the sleeping module back off the avatar. The generated assets stay where they are:
+        /// the folder is disposable, nothing else points at them, and leaving them means putting
+        /// sleeping back costs no rebuild if the clips have not changed.
+        /// </summary>
+        public static bool RemoveSleepLocomotion(EasyLoco easyLoco)
+        {
+            if (easyLoco == null)
             {
-                Undo.DestroyObjectImmediate(existing.gameObject);
+                return false;
             }
+
+            var existing = easyLoco.transform.Find(EasyLocoConst.SleepObjectName);
+            if (existing == null)
+            {
+                return false;
+            }
+
+            Undo.DestroyObjectImmediate(existing.gameObject);
+            return true;
         }
 
         // Re-instancing on every build would discard the user's placement of an existing instance for
@@ -210,8 +225,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(baseController);
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController, MergeAnimatorMode.Replace);
 
-            BuildSleep(easyLoco, host, outputFolder);
-
             var actionController = (AnimatorController)BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", new Dictionary<string, Motion>());
             ApplyAfkOverrides(actionController, easyLoco);
             EditorUtility.SetDirty(actionController);
@@ -246,31 +259,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return prefabPath;
         }
 
-        // Sleeping installs as one nested prefab rather than as loose components on the host, so it
-        // stays a unit the user can drag onto another avatar by itself. Switching the feature off is
-        // then a single early return - the host is rebuilt from scratch on every build, so an avatar
-        // that had sleeping and turns it off simply comes back without the nested object.
-        private static void BuildSleep(EasyLoco easyLoco, GameObject host, string outputFolder)
-        {
-            if (easyLoco.sleep == null || !easyLoco.sleep.enabled)
-            {
-                return;
-            }
-
-            var prefabPath = BuildSleepPrefab(BuildSleepController(easyLoco, outputFolder), outputFolder, standalone: false);
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            if (prefab == null)
-            {
-                throw new FileNotFoundException("EasyLoco sleep prefab was not found after building.", prefabPath);
-            }
-
-            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, host.transform);
-            instance.name = EasyLocoConst.SleepObjectName;
-            instance.transform.localPosition = Vector3.zero;
-            instance.transform.localRotation = Quaternion.identity;
-            instance.transform.localScale = Vector3.one;
-        }
-
         // Sleep clips live at the leaves of the DefaultSleepingFacing* trees, one per sleeping state.
         // Registering them here lets ReplaceMotion's existing clone path rebuild those trees for this
         // avatar, so the generated controller carries whatever the component overrides.
@@ -292,7 +280,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         //
         // Built detached and saved before it is instantiated, the same as the outer host: a save
         // that throws cannot leave a half-configured object under the avatar.
-        private static string BuildSleepPrefab(AnimatorController controller, string outputFolder, bool standalone)
+        private static string BuildSleepPrefab(AnimatorController controller, string outputFolder, bool nestUnderMainMenu)
         {
             var source = AssetDatabase.LoadAssetAtPath<GameObject>(EasyLocoConst.SleepPrefabPath);
             if (source == null)
@@ -310,14 +298,10 @@ namespace Puetsua.VRCEasyLoco.Editor
                 // layer, and these layers only override it while the avatar is actually asleep.
                 EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, controller, MergeAnimatorMode.Append);
 
-                // The prefab nests its Sleep entry under EasyLocoMain, which only exists when the
-                // full build installed it. Installed on its own that target is absent and Modular
-                // Avatar drops the installer without a word, leaving sleeping with no toggles - so
-                // a standalone build puts the entry on the avatar's root menu instead.
                 var installer = host.GetComponent<ModularAvatarMenuInstaller>();
                 if (installer != null)
                 {
-                    installer.installTargetMenu = standalone ? null : LoadMainMenu();
+                    installer.installTargetMenu = nestUnderMainMenu ? LoadMainMenu() : null;
                     EditorUtility.SetDirty(installer);
                 }
 
