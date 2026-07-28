@@ -28,6 +28,10 @@
 建置會產生一個獨立的 `GeneratedEasyLocoMA` prefab，並自動安裝到你的 avatar 上。重新建置會直接覆寫
 同一個 prefab，已安裝的實例也會跟著更新。你也可以手動把這個 prefab 拖到其他相似的 avatar 上重複使用。
 
+睡覺也可以單獨安裝：睡覺區塊最下方的 **Add Sleeping Only** 會只用你設定的動畫產生睡覺 prefab 並裝到
+avatar 上，不會動到移動、待機姿勢與 AFK。此時睡覺選單會掛在 avatar 的根選單；之後再按
+**Build Modular Avatar** 會一併處理睡覺，並取代這個按鈕裝上的內容。
+
 ## 安裝方式
 
 ### VCC

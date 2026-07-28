@@ -31,6 +31,11 @@ The build produces a self-contained `GeneratedEasyLocoMA` prefab and installs it
 Rebuilding overwrites that prefab in place, so the installed instance updates with it. You can also
 drop the prefab onto a similar avatar by hand to reuse one build.
 
+Sleeping is also installable on its own: **Add Sleeping Only**, at the bottom of the Sleep section,
+builds just the sleeping prefab with the clips you set and puts it on the avatar — locomotion, idle
+poses, and AFK are left alone. Its Sleep menu goes to the avatar's root, and a later
+**Build Modular Avatar** covers sleeping too and replaces what the button added.
+
 ## Installation
 
 ### VCC

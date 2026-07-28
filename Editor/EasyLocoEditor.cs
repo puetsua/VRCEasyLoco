@@ -124,6 +124,18 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
+            showAfk = DrawFoldout(AfkFoldoutKey, "AFK Animations", showAfk, ref showAfkHelp);
+            if (showAfk)
+            {
+                DrawHelp(showAfkHelp, "AFK is branched by posture at runtime. Leave a clip empty to keep the built-in default for that stage.");
+                DrawAfkSet("Stand AFK", standAfk);
+                DrawAfkSet("Crouch AFK", crouchAfk);
+                DrawAfkSet("Prone AFK", proneAfk);
+            }
+
+            // Last of the sections: sleeping is the one optional feature, and it installs as its own
+            // prefab rather than as part of the locomotion the sections above describe.
+            EditorGUILayout.Space();
             showSleep = DrawFoldout(SleepFoldoutKey, "Sleep Animations", showSleep, ref showSleepHelp, sleepEnabled, SleepEnabledContent);
             if (showSleep)
             {
@@ -137,22 +149,16 @@ namespace Puetsua.VRCEasyLoco.Editor
                 // The clips stay visible while off so a user can see what they would get back, but
                 // editing them would have no effect on the build until sleeping is switched on.
                 using (new EditorGUI.DisabledScope(!sleepEnabled.boolValue))
-                using (new EditorGUI.IndentLevelScope())
                 {
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side (Left)"));
-                }
-            }
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
+                        EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
+                        EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side (Left)"));
+                    }
 
-            EditorGUILayout.Space();
-            showAfk = DrawFoldout(AfkFoldoutKey, "AFK Animations", showAfk, ref showAfkHelp);
-            if (showAfk)
-            {
-                DrawHelp(showAfkHelp, "AFK is branched by posture at runtime. Leave a clip empty to keep the built-in default for that stage.");
-                DrawAfkSet("Stand AFK", standAfk);
-                DrawAfkSet("Crouch AFK", crouchAfk);
-                DrawAfkSet("Prone AFK", proneAfk);
+                    DrawSleepOnlyBuild(easyLoco, hasAvatar);
+                }
             }
 
             serializedObject.ApplyModifiedProperties();
@@ -322,6 +328,48 @@ namespace Puetsua.VRCEasyLoco.Editor
             };
 
             return list;
+        }
+
+        // Sleeping is the one part that installs as a prefab of its own, so it is also the one part
+        // that can be installed alone - useful for an avatar that wants the sleeping pose but not
+        // EasyLoco's locomotion, and for carrying a customised set of clips to another avatar. The
+        // generated prefab is pinged afterwards so it is easy to find and drag.
+        private void DrawSleepOnlyBuild(EasyLoco easyLoco, bool hasAvatar)
+        {
+            EditorGUILayout.Space();
+            using (new EditorGUI.DisabledScope(!hasAvatar))
+            {
+                if (GUILayout.Button("Add Sleeping Only"))
+                {
+                    serializedObject.ApplyModifiedProperties();
+                    BuildSleepOnly(easyLoco);
+                    serializedObject.Update();
+                }
+            }
+
+            EditorGUILayout.HelpBox("Installs just the sleeping prefab, with the clips set above, onto this avatar. "
+                + "Build Modular Avatar covers sleeping too and replaces what this adds.", MessageType.None);
+        }
+
+        private static void BuildSleepOnly(EasyLoco easyLoco)
+        {
+            try
+            {
+                var path = EasyLocoModularAvatarBuilder.BuildSleepOnly(easyLoco);
+                var prefab = AssetDatabase.LoadAssetAtPath<Object>(path);
+                if (prefab != null)
+                {
+                    EditorGUIUtility.PingObject(prefab);
+                }
+
+                EditorUtility.DisplayDialog(EasyLocoConst.DisplayName,
+                    "Sleeping added to the avatar.\n\n" + path, "OK");
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogException(exception);
+                EditorUtility.DisplayDialog(EasyLocoConst.DisplayName, exception.Message, "OK");
+            }
         }
 
         private static void DrawAfkSet(string label, SerializedProperty afkSet)
