@@ -19,6 +19,12 @@ animator controllers. Installs through Modular Avatar.
   EasyLoco.
 * **AFK** — per-posture AFK animations, with separate entering / looping / exiting clips for
   standing, crouching, and prone.
+* **Multilingual** — English and 正體中文, picked from the Language dropdown at the top of the
+  component. The choice is per-user and remembered across projects. The idle pose names follow it
+  into the in-game menu: switch language and the built-in names are relabelled for you. Rename one
+  yourself, add a row, or point a row at your own clip, and that stance stops following — your names
+  are yours from then on, decided per stance, so customising the standing poses leaves crouch and
+  prone still following. The Sleep menu entries are English in both languages for now.
 
 Every animation ships with a built-in default, so it works out of the box.
 

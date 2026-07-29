@@ -31,10 +31,16 @@ namespace Puetsua.VRCEasyLoco.Editor
         // by its template's name has to strip this first.
         private const string GeneratedAssetPrefix = "EasyLoco";
 
+        private static LocalizedTextDataset Localized => LocalizedTextDataset.primary;
+
         /// <summary>Per-stance idle build state gathered up front and reused for params + menu.</summary>
         private sealed class StanceBuild
         {
+            // Key names generated assets and blend trees, so it stays ASCII and language-independent
+            // - rebuilding under another language must not orphan the previous run's files.
+            // MenuLabel is the localized text the player reads in the expression menu.
             public readonly string Key;
+            public readonly string MenuLabel;
             public readonly List<EasyLoco.IdlePose> Poses;
             public readonly string IdleTargetName;
             public readonly string ParamName;
@@ -43,9 +49,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             public Motion Motion;
             public bool HasMenu;
 
-            public StanceBuild(string key, List<EasyLoco.IdlePose> poses, string idleTargetName, string paramName)
+            public StanceBuild(string key, string menuLabel, List<EasyLoco.IdlePose> poses, string idleTargetName, string paramName)
             {
                 Key = key;
+                MenuLabel = menuLabel;
                 Poses = poses;
                 IdleTargetName = idleTargetName;
                 ParamName = paramName;
@@ -215,9 +222,9 @@ namespace Puetsua.VRCEasyLoco.Editor
         {
             var stances = new List<StanceBuild>
             {
-                new StanceBuild("Stand", easyLoco.standPoses, EasyLocoConst.StandIdleTarget, EasyLocoConst.IdleStandParam),
-                new StanceBuild("Crouch", easyLoco.crouchPoses, EasyLocoConst.CrouchIdleTarget, EasyLocoConst.IdleCrouchParam),
-                new StanceBuild("Prone", easyLoco.pronePoses, EasyLocoConst.ProneIdleTarget, EasyLocoConst.IdleProneParam),
+                new StanceBuild("Stand", Localized.menuStandPoses, easyLoco.standPoses, EasyLocoConst.StandIdleTarget, EasyLocoConst.IdleStandParam),
+                new StanceBuild("Crouch", Localized.menuCrouchPoses, easyLoco.crouchPoses, EasyLocoConst.CrouchIdleTarget, EasyLocoConst.IdleCrouchParam),
+                new StanceBuild("Prone", Localized.menuPronePoses, easyLoco.pronePoses, EasyLocoConst.ProneIdleTarget, EasyLocoConst.IdleProneParam),
             };
 
             // Build each stance's idle motion: null (keep built-in), a single override clip, or a
@@ -751,18 +758,20 @@ namespace Puetsua.VRCEasyLoco.Editor
                 stanceMenu.controls.Clear();
                 for (var i = 0; i < stance.Entries.Count; i++)
                 {
-                    var label = string.IsNullOrEmpty(stance.Entries[i].menuName) ? "Pose " + i : stance.Entries[i].menuName;
+                    var label = string.IsNullOrEmpty(stance.Entries[i].menuName)
+                        ? Localized.posePrefix + i
+                        : stance.Entries[i].menuName;
                     stanceMenu.controls.Add(MakeToggle(label, stance.ParamName, PoseValue(i, stance.Entries.Count)));
                 }
                 EditorUtility.SetDirty(stanceMenu);
 
-                root.controls.Add(MakeSubMenu(stance.Key, stanceMenu));
+                root.controls.Add(MakeSubMenu(stance.MenuLabel, stanceMenu));
             }
             EditorUtility.SetDirty(root);
 
             var entry = GetOrCreateMenu(outputFolder + "/EasyLocoIdlePosesEntry.asset");
             entry.controls.Clear();
-            entry.controls.Add(MakeSubMenu("Idle Poses", root));
+            entry.controls.Add(MakeSubMenu(Localized.menuIdlePoses, root));
             EditorUtility.SetDirty(entry);
 
             EnsureSubMenuInstaller(host, entry, LoadMainMenu()); // nest the idle poses under EasyLocoMain
@@ -773,7 +782,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // same value as "Wide1", so the menu drew Wide1 as already active and the next click on it
         // read as switching it off - back to the default pose. Spreading the poses evenly across
         // 0..1 keeps every selection inside the syncable range and distinct from its neighbours.
-        private static float PoseValue(int index, int count)
+        internal static float PoseValue(int index, int count)
         {
             return count <= 1 ? 0f : (float)index / (count - 1);
         }

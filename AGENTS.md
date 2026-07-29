@@ -10,9 +10,16 @@ The package is developed inside the parent Unity project at `C:\Data\Projects\Un
 
 ## Build and validation
 
-There is no CLI build or test suite yet. Unity imports and compiles the package through the editor assembly definition in `Editor/`.
+There is no CLI build. Unity imports and compiles the package through the editor assembly definition in `Editor/`.
 
-Validate changes by opening the parent project in Unity 2022.3.22f1 and using:
+`Tests/Editor/` holds EditMode tests (`Puetsua.VRCEasyLoco.Editor.Tests`) covering the pieces that
+are pure logic: the localized dataset contract, the idle pose name rules, and the expression menu
+pose values. Run them from `Window -> General -> Test Runner -> EditMode`. They reach package
+internals through the `InternalsVisibleTo` in `Editor/AssemblyInfo.cs`, and are repo-only - the
+release workflow's exclusion list keeps `Tests` out of the shipped zip and `.unitypackage`.
+
+Anything that needs a live avatar, Modular Avatar, or the VRChat SDK is not covered; validate that by
+opening the parent project in Unity 2022.3.22f1 and using:
 
 - `GameObject -> Add EasyLoco Component` on an avatar, then the EasyLoco inspector's **Build Modular Avatar** button
 - The sample avatars in `Assets/main.unity`
@@ -36,7 +43,28 @@ EasyLoco should start conservative:
 - Editor entry point: the `EasyLoco` component + its custom inspector (added via `GameObject -> Add EasyLoco Component`)
 - Code lives under `Editor/` until runtime components are truly required
 - Constants live in `EasyLocoConst.cs`; do not duplicate package names or menu labels
-- Localized UI text should be centralized before the UI grows beyond this initial scaffold
+- Every user-facing inspector string lives in `LocalizedTextDataset` (field list and language
+  preference in `LocalizedTextDataset.cs`, the strings themselves in `LocalizedTextDataset.Data.cs`),
+  reached through the `Localized` shorthand. Adding a string means adding a field and filling it in
+  **every** language dataset - there is no per-key fallback, so a missing translation draws blank.
+- Expression menu labels are localized too, but they are serialized component data baked onto the
+  avatar rather than redrawn every frame, so they are *synced* instead. `SyncPoseNames` runs from
+  `OnEnable` and on a language switch, and the rule is:
+  - row 0's name always follows the current language - that field is disabled in the inspector, so
+    it can never be a user edit and there is nothing there to protect
+  - the other rows follow only while their stance is still pristine: same row count, same built-in
+    clips, and names matching the built-ins in **any** supported language (that last part is what
+    `LocalizedTextDataset.All` is for - an English-authored component must not look customised just
+    because the user has since switched)
+  - pristine-ness is judged per stance, so editing the stand poses must not freeze crouch and prone
+
+  The cost is that selecting a component can rewrite and dirty it: two people sharing a project with
+  different language prefs will see the `menuName`s flip back and forth in their diffs. That is the
+  unavoidable price of per-user language driving shared serialized data, and it is the intended
+  trade - do not "fix" it by deleting the sync.
+- Generated asset and file names (`StanceBuild.Key`, `GeneratedAssetPrefix`, controller and menu
+  filenames) stay ASCII and language-independent, so a rebuild under another language overwrites the
+  previous run's files instead of orphaning them.
 
 ## Release
 

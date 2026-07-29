@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Puetsua.VRCEasyLoco;
 using UnityEditor;
 using UnityEditorInternal;
@@ -46,13 +48,26 @@ namespace Puetsua.VRCEasyLoco.Editor
         private static Texture2D Banner =>
             banner != null ? banner : (banner = AssetDatabase.LoadAssetAtPath<Texture2D>(EasyLocoConst.BannerTexturePath));
 
+        private static LocalizedTextDataset Localized => LocalizedTextDataset.primary;
+
         // Built-in editor icons are only valid once the skin exists, so this is fetched lazily
-        // rather than in a field initializer.
+        // rather than in a field initializer. The image is what's worth caching; the tooltip is
+        // reassigned every time so a language change is picked up without rebuilding the content.
         private static GUIContent infoIcon;
 
-        private static GUIContent InfoIcon =>
-            infoIcon ?? (infoIcon = new GUIContent(EditorGUIUtility.IconContent("console.infoicon").image,
-                "Show or hide the description for this section."));
+        private static GUIContent InfoIcon
+        {
+            get
+            {
+                if (infoIcon == null)
+                {
+                    infoIcon = new GUIContent(EditorGUIUtility.IconContent("console.infoicon").image);
+                }
+
+                infoIcon.tooltip = Localized.tooltipInfoButton;
+                return infoIcon;
+            }
+        }
 
         private void OnEnable()
         {
@@ -74,9 +89,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             crouchAfk = serializedObject.FindProperty(nameof(EasyLoco.crouchAfk));
             proneAfk = serializedObject.FindProperty(nameof(EasyLoco.proneAfk));
 
-            standList = CreatePoseList(standPoses, "Stand Idle Poses");
-            crouchList = CreatePoseList(crouchPoses, "Crouch Idle Poses");
-            proneList = CreatePoseList(pronePoses, "Prone Idle Poses");
+            // Headers are resolved per draw rather than captured here: the lists outlive a language
+            // change, and a captured string would keep showing the old language until reselection.
+            standList = CreatePoseList(standPoses, () => Localized.headerStandPoses);
+            crouchList = CreatePoseList(crouchPoses, () => Localized.headerCrouchPoses);
+            proneList = CreatePoseList(pronePoses, () => Localized.headerPronePoses);
         }
 
         public override void OnInspectorGUI()
@@ -84,6 +101,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             serializedObject.Update();
 
             DrawBanner();
+            DrawLanguage();
 
             var easyLoco = (EasyLoco)target;
 
@@ -92,12 +110,12 @@ namespace Puetsua.VRCEasyLoco.Editor
             var hasAvatar = easyLoco.Avatar != null;
             if (!hasAvatar)
             {
-                EditorGUILayout.HelpBox("This component must be on the same GameObject as the VRCAvatarDescriptor.", MessageType.Warning);
+                EditorGUILayout.HelpBox(Localized.msgNeedsAvatarDescriptor, MessageType.Warning);
             }
 
             using (new EditorGUI.DisabledScope(!hasAvatar))
             {
-                if (GUILayout.Button("Build Modular Avatar"))
+                if (GUILayout.Button(Localized.buttonBuild))
                 {
                     serializedObject.ApplyModifiedProperties();
                     Build(easyLoco);
@@ -106,10 +124,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            showPoses = DrawFoldout(PosesFoldoutKey, "Idle Animations", showPoses, ref showPosesHelp);
+            showPoses = DrawFoldout(PosesFoldoutKey, Localized.sectionIdle, showPoses, ref showPosesHelp);
             if (showPoses)
             {
-                DrawHelp(showPosesHelp, "Row 0 is the Default pose (its clip may be overridden but it cannot be removed). Add rows to expose extra poses in the Idle Poses menu.");
+                DrawHelp(showPosesHelp, Localized.helpIdle);
 
                 standList.DoLayoutList();
                 crouchList.DoLayoutList();
@@ -117,13 +135,13 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             EditorGUILayout.Space();
-            showAfk = DrawFoldout(AfkFoldoutKey, "AFK Animations", showAfk, ref showAfkHelp);
+            showAfk = DrawFoldout(AfkFoldoutKey, Localized.sectionAfk, showAfk, ref showAfkHelp);
             if (showAfk)
             {
-                DrawHelp(showAfkHelp, "AFK is branched by posture at runtime. Leave a clip empty to keep the built-in default for that stage.");
-                DrawAfkSet("Stand AFK", standAfk);
-                DrawAfkSet("Crouch AFK", crouchAfk);
-                DrawAfkSet("Prone AFK", proneAfk);
+                DrawHelp(showAfkHelp, Localized.helpAfk);
+                DrawAfkSet(Localized.labelStandAfk, standAfk);
+                DrawAfkSet(Localized.labelCrouchAfk, crouchAfk);
+                DrawAfkSet(Localized.labelProneAfk, proneAfk);
             }
 
             // Ruled off from the sections above: everything before this is the locomotion that Build
@@ -133,22 +151,53 @@ namespace Puetsua.VRCEasyLoco.Editor
             DrawSeparator();
             EditorGUILayout.Space();
 
-            showSleep = DrawFoldout(SleepFoldoutKey, "Module - Sleep Animations", showSleep, ref showSleepHelp);
+            showSleep = DrawFoldout(SleepFoldoutKey, Localized.sectionSleep, showSleep, ref showSleepHelp);
             if (showSleep)
             {
-                DrawHelp(showSleepHelp, "Installed separately, by the button below - Build Modular Avatar does not touch sleeping. Played while Sleep is toggled on and the avatar is prone. Head orientation blends between the poses. Leave a clip empty to keep the built-in default.\n\nOn Side (Left) is the authored pose - lying on the left side; the right side is mirrored from it automatically, and Feet Lock plays the same pose.");
+                DrawHelp(showSleepHelp, Localized.helpSleep);
 
                 DrawSleepBuild(easyLoco, hasAvatar);
 
                 using (new EditorGUI.IndentLevelScope())
                 {
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent("Facing Up"));
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent("Facing Down"));
-                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent("On Side (Left)"));
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.up)), new GUIContent(Localized.labelSleepUp));
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.down)), new GUIContent(Localized.labelSleepDown));
+                    EditorGUILayout.PropertyField(sleep.FindPropertyRelative(nameof(EasyLoco.SleepSet.side)), new GUIContent(Localized.labelSleepSide));
                 }
             }
 
             serializedObject.ApplyModifiedProperties();
+        }
+
+        // The language itself is a global editor preference rather than component state, so it is not
+        // part of the serialized object. Sits under the banner: it changes what every label below
+        // reads, so it belongs above all of them.
+        //
+        // Switching it does touch the component, though - the pose names EasyLoco owns are re-labelled
+        // on the spot, so the expression menu follows the language without the user having to remove
+        // and re-add the component. serializedObject is refreshed afterwards because that edit goes
+        // through the object directly, behind the back of the properties drawn below.
+        private void DrawLanguage()
+        {
+            EditorGUI.BeginChangeCheck();
+            var language = (SupportedLanguage)EditorGUILayout.EnumPopup(
+                Localized.labelLanguage, LocalizedTextDataset.Current);
+            if (!EditorGUI.EndChangeCheck())
+            {
+                return;
+            }
+
+            LocalizedTextDataset.SetLanguage(language);
+            LocalizedTextDataset.SaveLanguage(language);
+
+            // Undoable here but not in OnEnable: this is a deliberate user action, where the same
+            // call during a mere selection change has no business landing on the undo stack. Note
+            // that undoing only rolls back the names, not the language itself, so reselecting the
+            // component re-applies them - the undo is a within-session escape hatch, not a way to
+            // keep the old names under the new language.
+            Undo.RecordObject(target, "Change EasyLoco Language");
+            InitializeDefaults((EasyLoco)target);
+            serializedObject.Update();
         }
 
         // Shrinks to the inspector width but never scales past the artwork's native size, so a wide
@@ -242,11 +291,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             return EasyLocoConst.EditorPrefsPrefix + "Help." + key;
         }
 
-        private ReorderableList CreatePoseList(SerializedProperty listProperty, string header)
+        private ReorderableList CreatePoseList(SerializedProperty listProperty, Func<string> header)
         {
             var list = new ReorderableList(serializedObject, listProperty, false, true, true, true);
 
-            list.drawHeaderCallback = rect => EditorGUI.LabelField(rect, header);
+            list.drawHeaderCallback = rect => EditorGUI.LabelField(rect, header());
 
             list.elementHeightCallback = index => EditorGUIUtility.singleLineHeight + 6f;
 
@@ -265,9 +314,11 @@ namespace Puetsua.VRCEasyLoco.Editor
 
                 if (index == 0)
                 {
+                    // Shows the stored name rather than a literal: row 0's name is written in
+                    // whatever language created the component, so a hard-coded one would lie.
                     using (new EditorGUI.DisabledScope(true))
                     {
-                        EditorGUI.TextField(nameRect, "Default");
+                        EditorGUI.TextField(nameRect, nameProp.stringValue);
                     }
                 }
                 else
@@ -284,7 +335,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 var index = property.arraySize;
                 property.arraySize++;
                 var element = property.GetArrayElementAtIndex(index);
-                element.FindPropertyRelative(nameof(EasyLoco.IdlePose.menuName)).stringValue = "Pose " + index;
+                element.FindPropertyRelative(nameof(EasyLoco.IdlePose.menuName)).stringValue = Localized.posePrefix + index;
                 element.FindPropertyRelative(nameof(EasyLoco.IdlePose.clip)).objectReferenceValue = null;
             };
 
@@ -315,7 +366,7 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             using (new EditorGUI.DisabledScope(!hasAvatar))
             {
-                if (GUILayout.Button(installed ? "Remove Sleep Locomotion" : "Build and append Sleep Locomotion"))
+                if (GUILayout.Button(installed ? Localized.buttonRemoveSleep : Localized.buttonBuildSleep))
                 {
                     serializedObject.ApplyModifiedProperties();
                     if (installed)
@@ -336,19 +387,19 @@ namespace Puetsua.VRCEasyLoco.Editor
             try
             {
                 var path = EasyLocoModularAvatarBuilder.BuildSleepLocomotion(easyLoco);
-                var prefab = AssetDatabase.LoadAssetAtPath<Object>(path);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab != null)
                 {
                     EditorGUIUtility.PingObject(prefab);
                 }
 
                 EditorUtility.DisplayDialog(EasyLocoConst.DisplayName,
-                    "Sleeping added to the avatar.\n\n" + path, "OK");
+                    Localized.msgSleepInstalled + "\n\n" + path, Localized.dialogOk);
             }
             catch (System.Exception exception)
             {
                 Debug.LogException(exception);
-                EditorUtility.DisplayDialog(EasyLocoConst.DisplayName, exception.Message, "OK");
+                EditorUtility.DisplayDialog(EasyLocoConst.DisplayName, exception.Message, Localized.dialogOk);
             }
         }
 
@@ -357,10 +408,112 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
             using (new EditorGUI.IndentLevelScope())
             {
-                EditorGUILayout.PropertyField(afkSet.FindPropertyRelative(nameof(EasyLoco.AfkSet.entering)), new GUIContent("Entering"));
-                EditorGUILayout.PropertyField(afkSet.FindPropertyRelative(nameof(EasyLoco.AfkSet.looping)), new GUIContent("Looping"));
-                EditorGUILayout.PropertyField(afkSet.FindPropertyRelative(nameof(EasyLoco.AfkSet.exiting)), new GUIContent("Exiting"));
+                EditorGUILayout.PropertyField(afkSet.FindPropertyRelative(nameof(EasyLoco.AfkSet.entering)), new GUIContent(Localized.labelAfkEntering));
+                EditorGUILayout.PropertyField(afkSet.FindPropertyRelative(nameof(EasyLoco.AfkSet.looping)), new GUIContent(Localized.labelAfkLooping));
+                EditorGUILayout.PropertyField(afkSet.FindPropertyRelative(nameof(EasyLoco.AfkSet.exiting)), new GUIContent(Localized.labelAfkExiting));
             }
+        }
+
+        /// <summary>One built-in idle pose: the localized name it carries, and the clip behind it.</summary>
+        internal sealed class PoseDefault
+        {
+            public readonly Func<LocalizedTextDataset, string> Name;
+            public readonly string ClipPath;
+
+            public PoseDefault(Func<LocalizedTextDataset, string> name, string clipPath)
+            {
+                Name = name;
+                ClipPath = clipPath;
+            }
+        }
+
+        // The built-in pose sets, described once so that filling a fresh component and deciding
+        // whether an existing one is still untouched read from the same table.
+        internal static readonly PoseDefault[] StandDefaults =
+        {
+            new PoseDefault(text => text.poseDefault, EasyLocoConst.StandDefaultClip),
+            new PoseDefault(text => text.poseStandWide1, EasyLocoConst.StandWide1Clip),
+            new PoseDefault(text => text.poseStandWide2, EasyLocoConst.StandWide2Clip),
+        };
+
+        internal static readonly PoseDefault[] CrouchDefaults =
+        {
+            new PoseDefault(text => text.poseDefault, EasyLocoConst.CrouchDefaultClip),
+            new PoseDefault(text => text.poseCrouchSquatting, EasyLocoConst.CrouchSquattingClip),
+        };
+
+        internal static readonly PoseDefault[] ProneDefaults =
+        {
+            new PoseDefault(text => text.poseDefault, EasyLocoConst.ProneDefaultClip),
+            new PoseDefault(text => text.poseProneLyingDown, EasyLocoConst.ProneLyingDownClip),
+        };
+
+        // The three take the dataset as an argument rather than reading the global: the language a
+        // list is being written in is exactly the interesting variable here, and tests must be able
+        // to drive it without touching the user's saved preference.
+        internal static List<EasyLoco.IdlePose> BuildDefaults(PoseDefault[] spec, LocalizedTextDataset text)
+        {
+            return spec.Select(pose => new EasyLoco.IdlePose(pose.Name(text), LoadClip(pose.ClipPath))).ToList();
+        }
+
+        // Whether a stance still holds exactly what EasyLoco put there - same number of rows, same
+        // clips, and names that match the built-ins in *some* language. That last part is what lets a
+        // component authored in English still be recognised after a switch to Chinese; without it
+        // EasyLoco would mistake its own English names for the user's edits and never update them.
+        //
+        // Row 0's name is left out of the test on purpose: the inspector locks that field, so it can
+        // never be the thing the user customised, and judging by it would only produce false negatives.
+        internal static bool IsPristine(List<EasyLoco.IdlePose> poses, PoseDefault[] spec)
+        {
+            if (poses == null || poses.Count != spec.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < spec.Length; i++)
+            {
+                if (poses[i] == null || poses[i].clip != LoadClip(spec[i].ClipPath))
+                {
+                    return false;
+                }
+
+                if (i > 0 && !LocalizedTextDataset.All.Any(text => spec[i].Name(text) == poses[i].menuName))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Re-labels one stance for the current language. Row 0 always follows it - that name is
+        // locked in the inspector, so there is no user edit there to protect and leaving it in the
+        // old language would only look broken. The other rows follow only while the stance is
+        // untouched, which is decided per stance: customising the stand poses freezes their names
+        // without freezing crouch and prone.
+        internal static bool SyncPoseNames(List<EasyLoco.IdlePose> poses, PoseDefault[] spec, LocalizedTextDataset text)
+        {
+            if (poses == null || poses.Count == 0)
+            {
+                return false;
+            }
+
+            var rows = IsPristine(poses, spec) ? spec.Length : 1;
+            var changed = false;
+
+            for (var i = 0; i < rows; i++)
+            {
+                var name = spec[i].Name(text);
+                if (poses[i] == null || poses[i].menuName == name)
+                {
+                    continue;
+                }
+
+                poses[i].menuName = name;
+                changed = true;
+            }
+
+            return changed;
         }
 
         private static void InitializeDefaults(EasyLoco easyLoco)
@@ -369,34 +522,25 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             if (easyLoco.standPoses == null || easyLoco.standPoses.Count == 0)
             {
-                easyLoco.standPoses = new List<EasyLoco.IdlePose>
-                {
-                    new EasyLoco.IdlePose("Default", LoadClip(EasyLocoConst.StandDefaultClip)),
-                    new EasyLoco.IdlePose("Wide1", LoadClip(EasyLocoConst.StandWide1Clip)),
-                    new EasyLoco.IdlePose("Wide2", LoadClip(EasyLocoConst.StandWide2Clip)),
-                };
+                easyLoco.standPoses = BuildDefaults(StandDefaults, Localized);
                 changed = true;
             }
 
             if (easyLoco.crouchPoses == null || easyLoco.crouchPoses.Count == 0)
             {
-                easyLoco.crouchPoses = new List<EasyLoco.IdlePose>
-                {
-                    new EasyLoco.IdlePose("Default", LoadClip(EasyLocoConst.CrouchDefaultClip)),
-                    new EasyLoco.IdlePose("Squatting", LoadClip(EasyLocoConst.CrouchSquattingClip)),
-                };
+                easyLoco.crouchPoses = BuildDefaults(CrouchDefaults, Localized);
                 changed = true;
             }
 
             if (easyLoco.pronePoses == null || easyLoco.pronePoses.Count == 0)
             {
-                easyLoco.pronePoses = new List<EasyLoco.IdlePose>
-                {
-                    new EasyLoco.IdlePose("Default", LoadClip(EasyLocoConst.ProneDefaultClip)),
-                    new EasyLoco.IdlePose("LyingDown", LoadClip(EasyLocoConst.ProneLyingDownClip)),
-                };
+                easyLoco.pronePoses = BuildDefaults(ProneDefaults, Localized);
                 changed = true;
             }
+
+            changed |= SyncPoseNames(easyLoco.standPoses, StandDefaults, Localized);
+            changed |= SyncPoseNames(easyLoco.crouchPoses, CrouchDefaults, Localized);
+            changed |= SyncPoseNames(easyLoco.pronePoses, ProneDefaults, Localized);
 
             changed |= InitializeSleepDefaults(easyLoco.sleep);
             changed |= InitializeAfkDefaults(easyLoco.standAfk);
@@ -406,6 +550,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             if (changed)
             {
                 EditorUtility.SetDirty(easyLoco);
+
+                // These writes go through the object rather than a SerializedProperty, so on a prefab
+                // instance they would not register as overrides and would be dropped on reload.
+                // A no-op on anything that is not a prefab instance.
+                PrefabUtility.RecordPrefabInstancePropertyModifications(easyLoco);
             }
         }
 
@@ -462,12 +611,12 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 EasyLocoModularAvatarBuilder.Build(easyLoco);
                 EditorUtility.DisplayDialog(EasyLocoConst.DisplayName,
-                    "Build succeeded — prefab added to the avatar.", "OK");
+                    Localized.msgBuildSucceeded, Localized.dialogOk);
             }
             catch (System.Exception exception)
             {
                 Debug.LogException(exception);
-                EditorUtility.DisplayDialog(EasyLocoConst.DisplayName, exception.Message, "OK");
+                EditorUtility.DisplayDialog(EasyLocoConst.DisplayName, exception.Message, Localized.dialogOk);
             }
         }
     }

@@ -48,8 +48,8 @@ jobs:
           mkdir -p "Packages/$packageName"
           for entry in *; do
             case "$entry" in
-              # Repo-only: agent instructions, not something users install.
-              Packages|AGENTS.md|AGENTS.md.meta) continue ;;
+              # Repo-only: agent instructions and the test assembly, not something users install.
+              Packages|AGENTS.md|AGENTS.md.meta|Tests|Tests.meta) continue ;;
             esac
             mv "$entry" "Packages/$packageName/"
           done
