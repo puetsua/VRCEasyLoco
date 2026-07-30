@@ -12,7 +12,7 @@
             buttonBuild = "Build Modular Avatar",
 
             // Idle animations
-            sectionIdle = "Idle Animations",
+            sectionIdle = "Idle Animations (Desktop Mode)",
             helpIdle = "Row 0 is the Default pose (its clip may be overridden but it cannot be removed). " +
                        "Add rows to expose extra poses in the Idle Poses menu.",
             headerStandPoses = "Stand Idle Poses",
@@ -79,7 +79,7 @@
             buttonBuild = "建置 Modular Avatar",
 
             // Idle animations
-            sectionIdle = "靜止動畫",
+            sectionIdle = "靜止動畫 (PC 模式)",
             helpIdle = "第 0 列是預設姿勢（可以換掉動畫，但不能刪除）。" +
                        "新增列可以把額外的姿勢加進靜止姿勢選單。",
             headerStandPoses = "站立靜止姿勢",
