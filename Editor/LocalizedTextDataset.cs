@@ -122,6 +122,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             // Dialogs
             dialogOk,
             msgBuildSucceeded,
+            msgBuildSucceededWithSleep,
             msgSleepInstalled,
 
             // Expression menu labels. Unlike everything above these do not just draw in the
@@ -133,6 +134,14 @@ namespace Puetsua.VRCEasyLoco.Editor
             menuStandPoses,
             menuCrouchPoses,
             menuPronePoses,
+            // The Action and Sleep sub-menus. Like the pose names these are baked onto the avatar at
+            // build time, so they follow whatever language was active when the build ran.
+            menuAction,
+            menuDefaultStanding,
+            menuDefaultSitting,
+            menuSleep,
+            menuSleepLoco,
+            menuFeetLock,
             posePrefix,
             poseDefault,
             poseStandWide1,

@@ -32,9 +32,10 @@
 
             // Sleep animations
             sectionSleep = "Module - Sleep Animations",
-            helpSleep = "Installed separately, by the button below - Build Modular Avatar does not touch " +
-                        "sleeping. Played while Sleep is toggled on and the avatar is prone. Head orientation " +
-                        "blends between the poses. Leave a clip empty to keep the built-in default.\n\n" +
+            helpSleep = "Installed with the button below. Once it is on the avatar, Build Modular Avatar " +
+                        "rebuilds it too, so a main build keeps it in place. Played while Sleep is toggled on " +
+                        "and the avatar is prone. Head orientation blends between the poses. Leave a clip " +
+                        "empty to keep the built-in default.\n\n" +
                         "On Side (Left) is the authored pose - lying on the left side; the right side is " +
                         "mirrored from it automatically, and Feet Lock plays the same pose.",
             buttonBuildSleep = "Build and append Sleep Locomotion",
@@ -46,6 +47,7 @@
             // Dialogs
             dialogOk = "OK",
             msgBuildSucceeded = "Build succeeded — prefab added to the avatar.",
+            msgBuildSucceededWithSleep = "Build succeeded — prefab added to the avatar.\n\nThe Sleep module was already installed, so it was rebuilt too. Its menu entry is nested under the EasyLoco menu.",
             msgSleepInstalled = "Sleeping added to the avatar.",
 
             // Expression menu
@@ -53,6 +55,12 @@
             menuStandPoses = "Stand",
             menuCrouchPoses = "Crouch",
             menuPronePoses = "Prone",
+            menuAction = "Action",
+            menuDefaultStanding = "Default Standing",
+            menuDefaultSitting = "Default Sitting",
+            menuSleep = "Sleep",
+            menuSleepLoco = "Sleep Loco",
+            menuFeetLock = "Feet Lock",
             posePrefix = "Pose ",
             poseDefault = "Default",
             poseStandWide1 = "Wide1",
@@ -90,11 +98,11 @@
 
             // Sleep animations
             sectionSleep = "模組 - 睡覺動畫",
-            helpSleep = "由下方的按鈕另外安裝——「建置 Modular Avatar」不會處理睡覺。" +
-                        "在 Sleep Loco 開啟且 avatar 趴下時播放，並依頭部方向在各姿勢之間混合。" +
+            helpSleep = "由下方的按鈕安裝。一旦裝上，「建置 Modular Avatar」也會一併重建，所以重新建置主模組時會把它留在原位。" +
+                        "在睡眠模式開啟且 avatar 趴下時播放，並依頭部方向在各姿勢之間混合。" +
                         "動畫留空則沿用內建預設。\n\n" +
                         "側躺（左）是實際製作的姿勢——身體左側朝下；右側會自動鏡像產生，" +
-                        "Feet Lock 也是播放同一個姿勢。",
+                        "雙腳鎖定也是播放同一個姿勢。",
             buttonBuildSleep = "建置並附加睡覺動作",
             buttonRemoveSleep = "移除睡覺動作",
             labelSleepUp = "臉朝上",
@@ -104,6 +112,7 @@
             // Dialogs
             dialogOk = "確定",
             msgBuildSucceeded = "建置成功——prefab 已加入 avatar。",
+            msgBuildSucceededWithSleep = "建置成功——prefab 已加入 avatar。\n\n睡覺模組已安裝過，所以也一併重建；它的選單項目會放在 EasyLoco 選單底下。",
             msgSleepInstalled = "已將睡覺動作加入 avatar。",
 
             // Expression menu
@@ -111,6 +120,12 @@
             menuStandPoses = "站立姿勢",
             menuCrouchPoses = "蹲下姿勢",
             menuPronePoses = "趴下姿勢",
+            menuAction = "動作",
+            menuDefaultStanding = "預設站立",
+            menuDefaultSitting = "預設坐下",
+            menuSleep = "睡覺",
+            menuSleepLoco = "睡眠模式",
+            menuFeetLock = "雙腳鎖定",
             posePrefix = "姿勢 ",
             poseDefault = "預設",
             poseStandWide1 = "張開 1",

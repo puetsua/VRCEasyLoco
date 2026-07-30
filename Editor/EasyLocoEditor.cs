@@ -622,9 +622,21 @@ namespace Puetsua.VRCEasyLoco.Editor
         {
             try
             {
+                // Build Modular Avatar rebuilds the main locomotion. If the Sleep module is already
+                // installed, it rebuilds that too - not because the main build destroys it (the host
+                // instance is reused when the prefab source matches), but to keep the sleep module's
+                // generated assets and menu installer in step with the main build. Installing sleep
+                // stays opt-in (the button below); this only refreshes an existing install.
                 EasyLocoModularAvatarBuilder.Build(easyLoco);
+                var sleepIncluded = EasyLocoModularAvatarBuilder.HasSleepLocomotion(easyLoco);
+                if (sleepIncluded)
+                {
+                    EasyLocoModularAvatarBuilder.BuildSleepLocomotion(easyLoco);
+                }
+
                 EditorUtility.DisplayDialog(EasyLocoConst.DisplayName,
-                    Localized.msgBuildSucceeded, Localized.dialogOk);
+                    sleepIncluded ? Localized.msgBuildSucceededWithSleep : Localized.msgBuildSucceeded,
+                    Localized.dialogOk);
             }
             catch (System.Exception exception)
             {

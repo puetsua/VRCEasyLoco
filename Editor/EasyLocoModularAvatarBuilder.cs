@@ -259,10 +259,17 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             // The Action layer is driven by VRCEmote, exposed through the EasyLoco expression menu.
             EnsureEmoteParameter(host);
-            EnsureMenuInstaller(host);
+
+            // Localised copies of the EasyLoco entry/main/action menus. The shared assets carry the
+            // in-game labels in English, so cloning them here lets "Action", "Default Standing" and
+            // "Default Sitting" follow the active language at build time. The entry menu is what the
+            // host appends to the avatar's root menu; the main menu is where the idle poses nest.
+            var mainMenu = GetOrCreateLocalizedMainMenu(outputFolder);
+            var entryMenu = GetOrCreateLocalizedEntry(outputFolder, mainMenu);
+            EnsureMenuInstaller(host, entryMenu);
 
             // Idle-pose selection menu + its synced parameters (only for stances with >1 pose).
-            BuildIdlePoseMenu(host, stances, outputFolder);
+            BuildIdlePoseMenu(host, stances, outputFolder, mainMenu);
             foreach (var stance in stances)
             {
                 if (stance.HasMenu)
@@ -327,7 +334,12 @@ namespace Puetsua.VRCEasyLoco.Editor
                 var installer = host.GetComponent<ModularAvatarMenuInstaller>();
                 if (installer != null)
                 {
-                    installer.installTargetMenu = nestUnderMainMenu ? LoadMainMenu() : null;
+                    // Localised Sleep menu + entry, so "Sleep", "Sleep Loco" and "Feet Lock" follow the
+                    // active language at build time. Nested under the localised EasyLocoMain when the
+                    // main prefab is present, otherwise appended at the root.
+                    var sleepMenu = GetOrCreateLocalizedSleep(outputFolder);
+                    installer.menuToAppend = GetOrCreateLocalizedSleepEntry(outputFolder, sleepMenu);
+                    installer.installTargetMenu = nestUnderMainMenu ? GetOrCreateLocalizedMainMenu(outputFolder) : null;
                     EditorUtility.SetDirty(installer);
                 }
 
@@ -741,7 +753,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             return clone;
         }
 
-        private static void BuildIdlePoseMenu(GameObject host, List<StanceBuild> stances, string outputFolder)
+        private static void BuildIdlePoseMenu(GameObject host, List<StanceBuild> stances, string outputFolder, VRCExpressionsMenu targetMenu)
         {
             var menuStances = stances.Where(stance => stance.HasMenu).ToList();
             if (menuStances.Count == 0)
@@ -774,7 +786,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             entry.controls.Add(MakeSubMenu(Localized.menuIdlePoses, root));
             EditorUtility.SetDirty(entry);
 
-            EnsureSubMenuInstaller(host, entry, LoadMainMenu()); // nest the idle poses under EasyLocoMain
+            EnsureSubMenuInstaller(host, entry, targetMenu); // nest the idle poses under the localised EasyLocoMain
         }
 
         // A synced VRChat Float only carries -1..1, so pose N cannot be selected by its raw index:
@@ -830,9 +842,8 @@ namespace Puetsua.VRCEasyLoco.Editor
             return menu;
         }
 
-        private static void EnsureMenuInstaller(GameObject host)
+        private static void EnsureMenuInstaller(GameObject host, VRCExpressionsMenu menu)
         {
-            var menu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(EntryMenuPath);
             if (menu == null)
             {
                 throw new FileNotFoundException("EasyLoco expression menu was not found.", EntryMenuPath);
@@ -870,15 +881,115 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(installer);
         }
 
-        private static VRCExpressionsMenu LoadMainMenu()
+        // Deep-enough clone of a menu control: a new Control instance so renaming it or rewiring its
+        // subMenu never touches the shared package asset it was copied from. The nested parameter and
+        // arrays are reused by reference - nothing here mutates them.
+        private static VRCExpressionsMenu.Control CloneControl(VRCExpressionsMenu.Control source)
         {
-            var menu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(EasyLocoConst.MainMenuPath);
-            if (menu == null)
+            return new VRCExpressionsMenu.Control
             {
-                throw new FileNotFoundException("EasyLoco main menu was not found.", EasyLocoConst.MainMenuPath);
+                name = source.name,
+                icon = source.icon,
+                type = source.type,
+                parameter = source.parameter,
+                value = source.value,
+                style = source.style,
+                subMenu = source.subMenu,
+                subParameters = source.subParameters,
+                labels = source.labels,
+            };
+        }
+
+        // Builds a per-avatar copy of a shared menu asset with control names translated to the active
+        // language and selected subMenu references rewired to other generated copies. The shared menus
+        // carry the in-game labels, so localising them means cloning rather than editing in place -
+        // mutating a shared asset would change it for every avatar. The Parameters reference is
+        // carried across so the copy still validates against the same expression-parameter set.
+        private static VRCExpressionsMenu LocalizeMenuCopy(string sourcePath, string outputPath, IDictionary<string, string> nameMap, IDictionary<string, VRCExpressionsMenu> subMenuRewires)
+        {
+            var source = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(sourcePath);
+            if (source == null)
+            {
+                throw new FileNotFoundException("EasyLoco menu was not found.", sourcePath);
             }
 
+            var menu = GetOrCreateMenu(outputPath);
+            menu.Parameters = source.Parameters;
+            menu.controls = source.controls.Select(control =>
+            {
+                var clone = CloneControl(control);
+                if (nameMap != null && nameMap.TryGetValue(control.name, out var newName))
+                {
+                    clone.name = newName;
+                }
+                if (subMenuRewires != null && subMenuRewires.TryGetValue(control.name, out var newSubMenu))
+                {
+                    clone.subMenu = newSubMenu;
+                }
+                return clone;
+            }).ToList();
+            EditorUtility.SetDirty(menu);
             return menu;
+        }
+
+        // The localised EasyLocoMain + Action menus. Built once per avatar in its generated folder and
+        // shared by the main build (which appends the idle-pose entry under it) and the sleep build
+        // (which nests the Sleep entry under it when the main prefab is present). "Action",
+        // "Default Standing" and "Default Sitting" follow the active language at build time; the emote
+        // submenus under them stay shared and untranslated, matching VRChat's emote names.
+        private static VRCExpressionsMenu GetOrCreateLocalizedMainMenu(string outputFolder)
+        {
+            var actionMenu = LocalizeMenuCopy(
+                EasyLocoConst.ActionMenuPath,
+                outputFolder + "/EasyLocoActionMenu.asset",
+                new Dictionary<string, string>
+                {
+                    { "Default Standing", Localized.menuDefaultStanding },
+                    { "Default Sitting", Localized.menuDefaultSitting },
+                },
+                null);
+
+            return LocalizeMenuCopy(
+                EasyLocoConst.MainMenuPath,
+                outputFolder + "/EasyLocoMain.asset",
+                new Dictionary<string, string> { { "Action", Localized.menuAction } },
+                new Dictionary<string, VRCExpressionsMenu> { { "Action", actionMenu } });
+        }
+
+        // The localised top entry: the "EasyLoco" control (product name, kept as-is, icon preserved by
+        // cloning) rewired to point at the localised main menu.
+        private static VRCExpressionsMenu GetOrCreateLocalizedEntry(string outputFolder, VRCExpressionsMenu mainMenu)
+        {
+            return LocalizeMenuCopy(
+                EntryMenuPath,
+                outputFolder + "/EasyLocoEntry.asset",
+                null,
+                new Dictionary<string, VRCExpressionsMenu> { { "EasyLoco", mainMenu } });
+        }
+
+        // The localised Sleep menu: "Sleep Loco" and "Feet Lock" toggles follow the active language.
+        private static VRCExpressionsMenu GetOrCreateLocalizedSleep(string outputFolder)
+        {
+            return LocalizeMenuCopy(
+                EasyLocoConst.SleepMenuPath,
+                outputFolder + "/EasyLocoSleep.asset",
+                new Dictionary<string, string>
+                {
+                    { "Sleep Loco", Localized.menuSleepLoco },
+                    { "Feet Lock", Localized.menuFeetLock },
+                },
+                null);
+        }
+
+        // The localised Sleep entry: "Sleep" follows the active language and points at the localised
+        // Sleep menu.
+        private static VRCExpressionsMenu GetOrCreateLocalizedSleepEntry(string outputFolder, VRCExpressionsMenu sleepMenu)
+        {
+            return LocalizeMenuCopy(
+                EasyLocoConst.SleepEntryMenuPath,
+                outputFolder + "/EasyLocoSleepEntry.asset",
+                new Dictionary<string, string> { { "Sleep", Localized.menuSleep } },
+                new Dictionary<string, VRCExpressionsMenu> { { "Sleep", sleepMenu } });
         }
 
         private static ModularAvatarParameters GetOrCreateMaParameters(GameObject host)

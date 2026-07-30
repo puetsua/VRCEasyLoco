@@ -64,6 +64,8 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string AfkAnimationsFolder = AnimationsFolder + "/Afk";
         public const string MenusFolder = PackageRoot + "/Menus";
         public const string MainMenuPath = MenusFolder + "/EasyLocoMain.asset";
+        public const string ActionMenuPath = MenusFolder + "/Action.asset";
+        public const string SleepMenuPath = MenusFolder + "/EasyLocoSleep.asset";
 
         // The Sleep sub-menu is installed by a menu installer on the sleep prefab rather than sitting
         // in EasyLocoMain's controls, so an avatar without the sleeping module never shows the entry.
