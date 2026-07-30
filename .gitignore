@@ -62,3 +62,6 @@ crashlytics-build.properties
 .vscode/
 .github.meta
 .github/**/*.meta
+
+# pi coding agent local session artifacts
+.pi-subagents/
