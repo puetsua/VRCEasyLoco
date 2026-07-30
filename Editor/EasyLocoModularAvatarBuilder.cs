@@ -729,9 +729,22 @@ namespace Puetsua.VRCEasyLoco.Editor
             return root;
         }
 
-        private static BlendTree CloneBlendTreeInMemory(BlendTree source, IReadOnlyDictionary<string, Motion> replacements, List<BlendTree> collected)
+        // Copied through serialization rather than with Object.Instantiate: every child motion of a
+        // blend tree is serialized as a strong pointer, and Unity's clone path asserts once per
+        // child - "(metaFlags & kStrongPPtrMask) == 0" - so the three Default* idle trees alone
+        // logged 37 of those per build. Nothing else was wrong with Instantiate: its copy is
+        // shallow, the children still pointing at the source's own motions, which is exactly what
+        // the recursion below expects. CopySerialized is shallow in the same way.
+        //
+        // Assigning the public properties one at a time would silence the assert too, but it
+        // silently drops m_NormalizedBlendValues - serialized, yet with no setter to reach it -
+        // along with anything Unity adds to the type later.
+        internal static BlendTree CloneBlendTreeInMemory(BlendTree source, IReadOnlyDictionary<string, Motion> replacements, List<BlendTree> collected)
         {
-            var clone = Object.Instantiate(source);
+            var clone = new BlendTree();
+            EditorUtility.CopySerialized(source, clone);
+            // CreateAsset renames the object after its file, and the clone is named for the
+            // template it came from, so the name has to survive the copy verbatim.
             clone.name = source.name;
 
             var children = clone.children;
