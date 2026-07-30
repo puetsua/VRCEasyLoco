@@ -6,6 +6,7 @@
         {
             // Inspector chrome
             labelLanguage = "Language",
+            labelVersion = "Version",
             tooltipInfoButton = "Show or hide the description for this section.",
             msgNeedsAvatarDescriptor = "This component must be on the same GameObject as the VRCAvatarDescriptor.",
             buttonBuild = "Build Modular Avatar",
@@ -64,6 +65,7 @@
         {
             // Inspector chrome
             labelLanguage = "語言",
+            labelVersion = "版本",
             tooltipInfoButton = "顯示或隱藏這個區塊的說明。",
             msgNeedsAvatarDescriptor = "這個元件必須和 VRCAvatarDescriptor 放在同一個 GameObject 上。",
             buttonBuild = "建置 Modular Avatar",

@@ -88,6 +88,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         public string
             // Inspector chrome
             labelLanguage,
+            labelVersion,
             tooltipInfoButton,
             msgNeedsAvatarDescriptor,
             buttonBuild,

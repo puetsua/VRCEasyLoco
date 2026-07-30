@@ -1,9 +1,56 @@
+using System;
+using System.IO;
+using UnityEngine;
+
 namespace Puetsua.VRCEasyLoco.Editor
 {
     internal static class EasyLocoConst
     {
         public const string PackageName = "vrchat.puetsuaworkshop.easyloco";
         public const string DisplayName = "EasyLoco";
+
+        // Read once from package.json and cached. Falls back to "dev" when the file cannot be read
+        // (e.g. the package folder was renamed or the file is missing), so the inspector never
+        // throws over a label. The resolved flag is separate from the value so a failed or empty
+        // read is cached too - without it every repaint would re-read the file and re-log the
+        // exception. Uses JsonUtility rather than Newtonsoft so the package does not have to take a
+        // dependency on com.unity.nuget.newtonsoft-json just to read one field.
+        private static string _cachedVersion = "dev";
+        private static bool _versionResolved;
+
+        public static string Version
+        {
+            get
+            {
+                if (_versionResolved)
+                {
+                    return _cachedVersion;
+                }
+
+                _versionResolved = true;
+                try
+                {
+                    var json = File.ReadAllText(PackageRoot + "/package.json");
+                    var info = JsonUtility.FromJson<PackageJson>(json);
+                    if (!string.IsNullOrEmpty(info.version))
+                    {
+                        _cachedVersion = info.version;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+
+                return _cachedVersion;
+            }
+        }
+
+        [Serializable]
+        private struct PackageJson
+        {
+            public string version;
+        }
 
         public const string GeneratedObjectName = "GeneratedEasyLocoMA";
 
