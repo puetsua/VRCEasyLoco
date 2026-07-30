@@ -729,12 +729,27 @@ namespace Puetsua.VRCEasyLoco.Editor
             return root;
         }
 
+        // Built field by field rather than with Object.Instantiate: a blend tree's child motions are
+        // serialized as strong pointers (that is how a tree owns its sub-trees), and Unity's clone
+        // path asserts on every one of them - "(metaFlags & kStrongPPtrMask) == 0", once per child,
+        // dozens of lines per build. Instantiate also deep-copies the sub-trees itself, which the
+        // recursion below would then copy a second time and leak the first set.
         private static BlendTree CloneBlendTreeInMemory(BlendTree source, IReadOnlyDictionary<string, Motion> replacements, List<BlendTree> collected)
         {
-            var clone = Object.Instantiate(source);
-            clone.name = source.name;
+            var clone = new BlendTree
+            {
+                name = source.name,
+                blendType = source.blendType,
+                blendParameter = source.blendParameter,
+                blendParameterY = source.blendParameterY,
+                // Off while the children are assigned so Unity keeps the thresholds copied below
+                // instead of redistributing them evenly; the source's own setting is restored after.
+                useAutomaticThresholds = false,
+                minThreshold = source.minThreshold,
+                maxThreshold = source.maxThreshold,
+            };
 
-            var children = clone.children;
+            var children = source.children;
             for (var i = 0; i < children.Length; i++)
             {
                 var motion = children[i].motion;
@@ -749,6 +764,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             clone.children = children;
+            clone.useAutomaticThresholds = source.useAutomaticThresholds;
             collected.Add(clone);
             return clone;
         }
