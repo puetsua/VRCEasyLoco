@@ -101,6 +101,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             serializedObject.Update();
 
             DrawBanner();
+            DrawVersion();
             DrawLanguage();
 
             var easyLoco = (EasyLoco)target;
@@ -198,6 +199,18 @@ namespace Puetsua.VRCEasyLoco.Editor
             Undo.RecordObject(target, "Change EasyLoco Language");
             InitializeDefaults((EasyLoco)target);
             serializedObject.Update();
+        }
+
+        // The version sits right-aligned under the banner so it is visible at a glance without
+        // taking a row away from the controls below. The "Version"/"版本" prefix follows the
+        // active language; the number itself is language-independent.
+        private static void DrawVersion()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"{Localized.labelVersion} {EasyLocoConst.Version}", EditorStyles.miniLabel);
+            }
         }
 
         // Shrinks to the inspector width but never scales past the artwork's native size, so a wide
