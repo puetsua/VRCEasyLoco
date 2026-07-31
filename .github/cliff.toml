@@ -49,6 +49,12 @@ tag_pattern = "[0-9]*"
 
 # The <!-- n --> markers only order the groups; the template strips them.
 commit_parsers = [
+  # Merge commits say who merged what branch, never what changed - and every PR
+  # here brings one, so leaving them in doubles the notes with entries no user
+  # can act on. The commits they merge are listed on their own.
+  { message = "^Merge (pull request|branch|remote-tracking branch)", skip = true },
+  # Release commits are the version bump itself.
+  { message = "^Release [0-9]", skip = true },
   # Repo plumbing nobody installing the package needs to read about.
   { message = "^(?i)(chore|ci|build|style|test|refactor)(\\(.*\\))?!?:", skip = true },
   { message = "^(?i)(add|introduce|feat)", group = "<!-- 0 -->Added" },
