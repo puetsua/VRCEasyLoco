@@ -32,7 +32,7 @@ Runtime/        asmdef: Puetsua.VRCEasyLoco
 package.json    VPM manifest; `version` is the release trigger
 ```
 
-`Animations/` `Animators/` `Menus/` `Prefabs/` are template assets the build writes into by name; `Textures/` is package art. `Documentation~/` ships in the release despite the `~` — that suffix only stops Unity importing it. `Dev~/` is the maintainer-only counterpart, kept out of the release by the workflow's exclusion list. `*.meta` files are Unity-generated GUIDs — keep in sync, never edit by hand.
+`Animations/` `Animators/` `Menus/` `Prefabs/` are template assets the build writes into by name; `Textures/` is package art. `Documentation~/` is maintainer-only — artwork sources and the release procedure — and is on the release workflow's exclusion list; the `~` alone would not keep it out, it only stops Unity importing it. `*.meta` files are Unity-generated GUIDs — keep in sync, never edit by hand.
 
 ## Scope
 
@@ -84,4 +84,4 @@ state.motion = replacementMap.TryGetValue(motionName, out var m) ? m : state.mot
 
 ## Release
 
-Maintainer-only. Full procedure (workflow exclusion list, git-cliff changelog rules, preview command) lives in [`Dev~/release.md`](Dev~/release.md). Short version: bump `version` in `package.json`, run `.github/workflows/release.yaml` manually, write commit subjects in the imperative (`Add`/`Fix`/`Remove`).
+Maintainer-only. Full procedure (workflow exclusion list, git-cliff changelog rules, preview command) lives in [`Documentation~/release.md`](Documentation~/release.md). Short version: bump `version` in `package.json`, run `.github/workflows/release.yaml` manually, write commit subjects in the imperative (`Add`/`Fix`/`Remove`).

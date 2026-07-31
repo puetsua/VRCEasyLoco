@@ -11,9 +11,9 @@ Maintainer-only procedure for cutting a new `vrchat.puetsuaworkshop.easyloco` re
 
 ## What ships
 
-The workflow's `Make Package Folder` step ships **every root entry except dotfiles and the exclusion list**. On that list: `AGENTS.md` and this folder (`Dev~`) as maintainer material, and `Tests` as repo-only.
+The workflow's `Make Package Folder` step ships **every root entry except dotfiles and the exclusion list**. On that list: `AGENTS.md`, `Tests`, and this folder — `Documentation~` holds the artwork sources and this procedure, none of which belongs in a user's project.
 
-`Documentation~/` **does** ship — the `~` only stops Unity importing it, it does not keep it out of the zip. That is why this file lives in `Dev~` rather than next to the package art.
+A `~` suffix is not what keeps a folder out: it only stops Unity importing it, and the release copies root entries by name. `Documentation~` ships unless it is on the list, which is why it is.
 
 Anything else added at the root lands in the zip and `.unitypackage`, so a new repo-only root entry has to be added to the exclusion list or it ships.
 
