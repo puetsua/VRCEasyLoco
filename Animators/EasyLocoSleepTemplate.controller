@@ -823,14 +823,20 @@ AnimatorStateMachine:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: SleepLocomotion
-  m_ChildStates: []
+  m_ChildStates:
+  - serializedVersion: 1
+    m_State: {fileID: 1102781996838665776}
+    m_Position: {x: 300, y: -40, z: 0}
   m_ChildStateMachines:
   - serializedVersion: 1
-    m_StateMachine: {fileID: 4277584509437838877}
-    m_Position: {x: 300, y: -40, z: 0}
+    m_StateMachine: {fileID: -3041050364939718111}
+    m_Position: {x: 300, y: 60, z: 0}
   m_AnyStateTransitions: []
   m_EntryTransitions: []
-  m_StateMachineTransitions: {}
+  m_StateMachineTransitions:
+  - first: {fileID: -3041050364939718111}
+    second:
+    - {fileID: 6699042292471624749}
   m_StateMachineBehaviours: []
   m_AnyStatePosition: {x: 120, y: -130, z: 0}
   m_EntryPosition: {x: 120, y: -30, z: 0}
@@ -1212,34 +1218,6 @@ AnimatorStateTransition:
   m_InterruptionSource: 0
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 0
---- !u!1107 &4277584509437838877
-AnimatorStateMachine:
-  serializedVersion: 6
-  m_ObjectHideFlags: 1
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Default VRC Locomotion
-  m_ChildStates:
-  - serializedVersion: 1
-    m_State: {fileID: 1102781996838665776}
-    m_Position: {x: 400, y: 60, z: 0}
-  m_ChildStateMachines:
-  - serializedVersion: 1
-    m_StateMachine: {fileID: -3041050364939718111}
-    m_Position: {x: 400, y: 160, z: 0}
-  m_AnyStateTransitions: []
-  m_EntryTransitions: []
-  m_StateMachineTransitions:
-  - first: {fileID: -3041050364939718111}
-    second:
-    - {fileID: 427245711091247795}
-  m_StateMachineBehaviours: []
-  m_AnyStatePosition: {x: 130, y: -30, z: 0}
-  m_EntryPosition: {x: 130, y: 70, z: 0}
-  m_ExitPosition: {x: 130, y: 20, z: 0}
-  m_ParentStateMachinePosition: {x: 100, y: 160, z: 0}
-  m_DefaultState: {fileID: 1102781996838665776}
 --- !u!1109 &4430876177545849123
 AnimatorTransition:
   m_ObjectHideFlags: 1
@@ -1310,6 +1288,20 @@ AnimatorStateTransition:
   m_InterruptionSource: 0
   m_OrderedInterruption: 1
   m_CanTransitionToSelf: 1
+--- !u!1109 &6699042292471624749
+AnimatorTransition:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 
+  m_Conditions: []
+  m_DstStateMachine: {fileID: 0}
+  m_DstState: {fileID: 1102781996838665776}
+  m_Solo: 0
+  m_Mute: 0
+  m_IsExit: 0
+  serializedVersion: 1
 --- !u!1109 &7059697917728724845
 AnimatorTransition:
   m_ObjectHideFlags: 1
