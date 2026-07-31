@@ -1,9 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
-using UnityEditor;
 using UnityEditor.Animations;
-using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
@@ -14,12 +12,13 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
     /// stuck there) whenever the legs were animator-driven - i.e. in 3-point/desktop, while FBT
     /// masked it. This pins the four Upright transitions to the SDK default directions so a
     /// hand-recreated transition can never silently invert again.
+    ///
+    /// Every case runs over both VRMode branches. They are separate copies of the same stance
+    /// machine, so a transition can be inverted in one and not the other - and a VR-only inversion
+    /// is exactly the kind that reaches a headset unnoticed.
     /// </summary>
     public class LocomotionTransitionTests
     {
-        private const string BaseTemplatePath =
-            EasyLocoConst.PackageRoot + "/Animators/EasyLocoBaseTemplate.controller";
-
         // SDK default locomotion uses these exact thresholds, so the template must match: standing
         // is Upright ~1, crouching ~0.5, prone ~0.1, and the boundaries sit at 0.41 / 0.43 / 0.68 / 0.7.
         private const float StandCrouchThreshold = 0.68f;
@@ -28,9 +27,10 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         private const float ProneCrouchThreshold = 0.43f;
 
         [Test]
-        public void StandingDropsToCrouchingBelowZeroPointSixEight()
+        public void StandingDropsToCrouchingBelowZeroPointSixEight(
+            [ValueSource(typeof(LocomotionTemplate), nameof(LocomotionTemplate.Branches))] string branch)
         {
-            var t = UprightTransition("Standing");
+            var t = UprightTransition(branch, "Standing");
 
             Assert.That(t.Mode, Is.EqualTo(AnimatorConditionMode.Less),
                 "Standing -> Crouching must be Upright < 0.68, not greater-than");
@@ -39,18 +39,20 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         }
 
         [Test]
-        public void CrouchingClimbsToStandingAboveZeroPointSeven()
+        public void CrouchingClimbsToStandingAboveZeroPointSeven(
+            [ValueSource(typeof(LocomotionTemplate), nameof(LocomotionTemplate.Branches))] string branch)
         {
-            var t = UprightTransition("Crouching", AnimatorConditionMode.Greater);
+            var t = UprightTransition(branch, "Crouching", AnimatorConditionMode.Greater);
 
             Assert.That(t.Threshold, Is.EqualTo(CrouchStandThreshold).Within(1e-4f));
             Assert.That(t.Destination, Is.EqualTo("Standing"));
         }
 
         [Test]
-        public void CrouchingDropsToProneBelowZeroPointFourOne()
+        public void CrouchingDropsToProneBelowZeroPointFourOne(
+            [ValueSource(typeof(LocomotionTemplate), nameof(LocomotionTemplate.Branches))] string branch)
         {
-            var t = UprightTransition("Crouching", AnimatorConditionMode.Less);
+            var t = UprightTransition(branch, "Crouching", AnimatorConditionMode.Less);
 
             Assert.That(t.Threshold, Is.EqualTo(CrouchProneThreshold).Within(1e-4f),
                 "Crouching -> Prone must trigger while Upright is still falling, not while it climbs");
@@ -58,9 +60,10 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         }
 
         [Test]
-        public void ProneClimbsToCrouchingAboveZeroPointFourThree()
+        public void ProneClimbsToCrouchingAboveZeroPointFourThree(
+            [ValueSource(typeof(LocomotionTemplate), nameof(LocomotionTemplate.Branches))] string branch)
         {
-            var t = UprightTransition("Prone");
+            var t = UprightTransition(branch, "Prone");
 
             Assert.That(t.Mode, Is.EqualTo(AnimatorConditionMode.Greater),
                 "Prone -> Crouching must be Upright > 0.43, not less-than");
@@ -69,15 +72,18 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         }
 
         [Test]
-        public void NoExtraUprightTransitionsExist()
+        public void NoExtraUprightTransitionsExist(
+            [ValueSource(typeof(LocomotionTemplate), nameof(LocomotionTemplate.Branches))] string branch)
         {
-            var states = LoadStanceStates();
+            var states = LocomotionTemplate.StanceStates(branch);
 
-            foreach (var name in new[] { "Standing", "Crouching", "Prone" })
+            foreach (var name in LocomotionTemplate.Stances)
             {
+                Assert.That(states, Contains.Key(name), $"{name} state missing from {branch}");
+
                 var upright = UprightTransitions(states[name]).ToList();
                 Assert.That(upright.Count, Is.EqualTo(name == "Crouching" ? 2 : 1),
-                    $"{name} should carry only its SDK stance transition(s) on Upright");
+                    $"{branch}/{name} should carry only its SDK stance transition(s) on Upright");
             }
         }
 
@@ -95,59 +101,21 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             }
         }
 
-        private static TransitionExpectation UprightTransition(string stateName, AnimatorConditionMode? mode = null)
+        private static TransitionExpectation UprightTransition(string branch, string stateName, AnimatorConditionMode? mode = null)
         {
-            var states = LoadStanceStates();
+            var states = LocomotionTemplate.StanceStates(branch);
+            Assert.That(states, Contains.Key(stateName), $"{stateName} state missing from {branch}");
+
             var matches = UprightTransitions(states[stateName], mode).ToList();
 
             Assert.That(matches, Has.Count.EqualTo(1),
                 mode == null
-                    ? $"{stateName} should have exactly one Upright transition"
-                    : $"{stateName} should have exactly one Upright transition with mode {mode}");
+                    ? $"{branch}/{stateName} should have exactly one Upright transition"
+                    : $"{branch}/{stateName} should have exactly one Upright transition with mode {mode}");
 
             var transition = matches[0];
             return new TransitionExpectation(transition.conditions[0].mode, transition.conditions[0].threshold,
                 DestinationName(transition));
-        }
-
-        private static Dictionary<string, AnimatorState> LoadStanceStates()
-        {
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(BaseTemplatePath);
-            Assume.That(controller, Is.Not.Null, $"Base template not found at {BaseTemplatePath}");
-
-            var layer = controller.layers.FirstOrDefault(l => l.name == "Locomotion");
-            Assume.That(layer, Is.Not.Null, "Locomotion layer missing from base template");
-
-            var byName = new Dictionary<string, AnimatorState>();
-            CollectStates(layer.stateMachine, byName);
-
-            foreach (var name in new[] { "Standing", "Crouching", "Prone" })
-            {
-                Assert.That(byName.ContainsKey(name), Is.True, $"{name} state missing from base template");
-            }
-
-            return byName;
-        }
-
-        private static void CollectStates(AnimatorStateMachine stateMachine, Dictionary<string, AnimatorState> into)
-        {
-            foreach (var child in stateMachine.states)
-            {
-                // First write wins: the locomotion states are unique, so a later duplicate (none
-                // expected here) would not silently overwrite the stance we want to test.
-                if (child.state != null && !into.ContainsKey(child.state.name))
-                {
-                    into[child.state.name] = child.state;
-                }
-            }
-
-            foreach (var child in stateMachine.stateMachines)
-            {
-                if (child.stateMachine != null)
-                {
-                    CollectStates(child.stateMachine, into);
-                }
-            }
         }
 
         private static IEnumerable<AnimatorStateTransition> UprightTransitions(AnimatorState state, AnimatorConditionMode? mode = null)

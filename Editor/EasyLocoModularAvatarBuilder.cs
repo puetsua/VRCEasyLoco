@@ -241,7 +241,10 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             // Always generate copies of the templates so the avatar merges the generated
             // controllers, never the shared template assets (which a user could edit by accident).
-            var baseController = (AnimatorController)BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements);
+            // Scoped to the desktop branch: the VR stances play the same clips under the same names
+            // and must keep the built-in poses (see DesktopLocomotionStateMachine).
+            var baseController = (AnimatorController)BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements,
+                EasyLocoConst.DesktopLocomotionStateMachine);
             foreach (var stance in stances)
             {
                 if (stance.HasMenu)
@@ -410,7 +413,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             stance.HasMenu = true;
         }
 
-        private static RuntimeAnimatorController BuildController(string sourcePath, string outputFolder, string fileName, IReadOnlyDictionary<string, Motion> replacements)
+        // scopeStateMachineName limits the replacement to the state machines of that name; null
+        // covers the whole controller.
+        private static RuntimeAnimatorController BuildController(string sourcePath, string outputFolder, string fileName, IReadOnlyDictionary<string, Motion> replacements,
+            string scopeStateMachineName = null)
         {
             if (AssetDatabase.LoadAssetAtPath<AnimatorController>(sourcePath) == null)
             {
@@ -429,7 +435,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(outputPath);
-            ReplaceMotions(controller, replacements, outputFolder);
+            ReplaceMotions(controller, replacements, outputFolder, scopeStateMachineName);
             EditorUtility.SetDirty(controller);
             return controller;
         }
@@ -581,18 +587,77 @@ namespace Puetsua.VRCEasyLoco.Editor
             controller.AddParameter(name, AnimatorControllerParameterType.Float);
         }
 
-        private static void ReplaceMotions(AnimatorController controller, IReadOnlyDictionary<string, Motion> replacements, string outputFolder)
+        internal static void ReplaceMotions(AnimatorController controller, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string scopeStateMachineName)
         {
             if (controller == null || replacements == null || replacements.Count == 0)
             {
                 return;
             }
 
+            var roots = CollectReplacementRoots(controller, scopeStateMachineName);
             var controllerPath = AssetDatabase.GetAssetPath(controller);
             var clones = new Dictionary<BlendTree, BlendTree>();
+            foreach (var root in roots)
+            {
+                ReplaceMotions(root, replacements, outputFolder, controllerPath, clones);
+            }
+        }
+
+        // Where the replacement is allowed to walk. An unscoped build starts at every layer; a
+        // scoped one starts at the named state machines only.
+        //
+        // A scope that matches nothing throws rather than falling back to the whole controller: the
+        // template and this name ship together, so a miss means someone renamed the state machine,
+        // and the quiet failure would be the overrides leaking into the branch the scope exists to
+        // protect - a build that looks fine and only shows up in VR.
+        //
+        // Nothing to replace never reaches here, by the early return above. That is on purpose: an
+        // avatar with no overrides has nothing to leak, and failing its build over a branch someone
+        // renamed in their own copy of the template would be a false alarm. The shipped template's
+        // names are pinned by the tests instead.
+        private static List<AnimatorStateMachine> CollectReplacementRoots(AnimatorController controller, string scopeStateMachineName)
+        {
+            var roots = new List<AnimatorStateMachine>();
             foreach (var layer in controller.layers)
             {
-                ReplaceMotions(layer.stateMachine, replacements, outputFolder, controllerPath, clones);
+                if (string.IsNullOrEmpty(scopeStateMachineName))
+                {
+                    roots.Add(layer.stateMachine);
+                }
+                else
+                {
+                    CollectStateMachinesNamed(layer.stateMachine, scopeStateMachineName, roots);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(scopeStateMachineName) && roots.Count == 0)
+            {
+                throw new System.InvalidOperationException(
+                    $"No state machine named \"{scopeStateMachineName}\" in {AssetDatabase.GetAssetPath(controller)}. " +
+                    "The template's locomotion branches were renamed - update EasyLocoConst to match.");
+            }
+
+            return roots;
+        }
+
+        // A match is not descended into: the caller walks all of it anyway, and a nested state
+        // machine of the same name would then be visited twice.
+        private static void CollectStateMachinesNamed(AnimatorStateMachine stateMachine, string name, List<AnimatorStateMachine> into)
+        {
+            if (stateMachine == null)
+            {
+                return;
+            }
+
+            if (stateMachine.name == name)
+            {
+                into.Add(stateMachine);
+                return;
+            }
+
+            foreach (var childStateMachine in stateMachine.stateMachines)
+            {
+                CollectStateMachinesNamed(childStateMachine.stateMachine, name, into);
             }
         }
 
