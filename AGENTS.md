@@ -12,7 +12,7 @@ Developed inside the parent Unity project at `C:\Data\Projects\Unity\VRCAvatarTo
 
 No CLI build — Unity compiles the package via the `Editor/` asmdef. Validate in Unity 2022.3.22f1.
 
-EditMode tests (pure logic: localized dataset contract, idle pose name rules, expression menu pose values, blend-tree cloning, locomotion/sleep template motion matching): `Window → General → Test Runner → EditMode → Run All`. Assembly `Puetsua.VRCEasyLoco.Editor.Tests`, reaches internals via `InternalsVisibleTo` in `Editor/AssemblyInfo.cs`.
+EditMode tests (localized dataset contract, idle pose name rules, expression menu pose values, blend-tree cloning, the replacement ledger, and the template contracts — stance transitions in both VRMode branches, and the motion/state names the build writes into): `Window → General → Test Runner → EditMode → Run All`. Assembly `Puetsua.VRCEasyLoco.Editor.Tests`, reaches internals via `InternalsVisibleTo` in `Editor/AssemblyInfo.cs`.
 
 Live-avatar / Modular Avatar / VRChat SDK validation: open the parent project, `GameObject → Add EasyLoco Component` on an avatar, then the inspector's **Build Modular Avatar** button. Sample avatars in `Assets/main.unity` (`Robot`, `nekobot`, `eniisyua5`, `bot1`/`bot2`/`bot3`).
 
@@ -25,11 +25,14 @@ Editor/   asmdef: Puetsua.VRCEasyLoco.Editor
   LocalizedTextDataset.cs / .Data.cs   Localized string fields + per-language strings
   AssemblyInfo.cs            InternalsVisibleTo → Tests
 Tests/Editor/   EditMode tests (asmdef: Puetsua.VRCEasyLoco.Editor.Tests) — repo-only, excluded from release zip/unitypackage
-Runtime/        Reserved for future runtime components (currently empty of logic)
+Runtime/        asmdef: Puetsua.VRCEasyLoco
+  EasyLoco.cs                The component the user configures — the serialized pose/AFK/sleep clip
+                             lists the build reads, plus `Avatar` (the descriptor on the same
+                             GameObject only). `IEditorOnly`, so the VRChat build strips it.
 package.json    VPM manifest; `version` is the release trigger
 ```
 
-`Animations/` `Animators/` `Menus/` `Prefabs/` are template assets the build writes into by name; `Textures/` is package art; `Documentation~/` ships docs (the `~` suffix makes Unity skip import). `*.meta` files are Unity-generated GUIDs — keep in sync, never edit by hand.
+`Animations/` `Animators/` `Menus/` `Prefabs/` are template assets the build writes into by name; `Textures/` is package art. `Documentation~/` ships in the release despite the `~` — that suffix only stops Unity importing it. `Dev~/` is the maintainer-only counterpart, kept out of the release by the workflow's exclusion list. `*.meta` files are Unity-generated GUIDs — keep in sync, never edit by hand.
 
 ## Scope
 
@@ -81,4 +84,4 @@ state.motion = replacementMap.TryGetValue(motionName, out var m) ? m : state.mot
 
 ## Release
 
-Maintainer-only. Full procedure (workflow exclusion list, git-cliff changelog rules, preview command) lives in [`Documentation~/release.md`](Documentation~/release.md). Short version: bump `version` in `package.json`, run `.github/workflows/release.yaml` manually, write commit subjects in the imperative (`Add`/`Fix`/`Remove`).
+Maintainer-only. Full procedure (workflow exclusion list, git-cliff changelog rules, preview command) lives in [`Dev~/release.md`](Dev~/release.md). Short version: bump `version` in `package.json`, run `.github/workflows/release.yaml` manually, write commit subjects in the imperative (`Add`/`Fix`/`Remove`).

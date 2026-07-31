@@ -48,10 +48,12 @@ jobs:
           mkdir -p "Packages/$packageName"
           for entry in *; do
             case "$entry" in
-              # Repo-only: agent instructions, the test assembly, and dev-only MCP
-              # config, not something users install. (.mcp.json is a dotfile and
-              # already skipped by the glob, but listed explicitly for clarity.)
-              Packages|AGENTS.md|AGENTS.md.meta|Tests|Tests.meta|.mcp.json|.mcp.json.meta) continue ;;
+              # Repo-only: agent instructions, the maintainer folder, the test
+              # assembly, and dev-only MCP config, not something users install.
+              # (.mcp.json is a dotfile and already skipped by the glob, but
+              # listed explicitly for clarity. Dev~ is not a dotfile - Unity
+              # skips importing it, the release would still ship it.)
+              Packages|AGENTS.md|AGENTS.md.meta|Dev~|Tests|Tests.meta|.mcp.json|.mcp.json.meta) continue ;;
             esac
             mv "$entry" "Packages/$packageName/"
           done
