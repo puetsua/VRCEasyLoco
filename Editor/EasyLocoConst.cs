@@ -204,6 +204,17 @@ namespace Puetsua.VRCEasyLoco.Editor
         // swaps these states' motions with the component's per-stance clips.
         public const string AfkStatePrefix = "Afk ";
 
+        // In the order the builder reads the component's three AFK sets. Named here rather than
+        // written into the state names inline, so the tests that pin the Action template's states
+        // spell them the same way the build does.
+        public static readonly string[] AfkStances = { "Stand", "Crouch", "Prone" };
+        public static readonly string[] AfkStages = { "Entering", "Looping", "Exiting" };
+
+        public static string AfkStateName(string stance, string stage)
+        {
+            return AfkStatePrefix + stance + " " + stage;
+        }
+
         // Built-in AFK clips shared as the default for every stance branch.
         public const string AfkEnteringDefaultClip = AfkAnimationsFolder + "/AfkEnteringDefault.anim";
         public const string AfkLoopingDefaultClip = AfkAnimationsFolder + "/AfkLoopingDefault.anim";
