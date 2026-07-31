@@ -123,6 +123,21 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string IdleCrouchParam = "EasyLocoIdleCrouch";
         public const string IdleProneParam = "EasyLocoIdleProne";
 
+        // The base template branches locomotion on VRMode: one sub-state machine per mode, each
+        // carrying its own Standing/Crouching/Prone states over the same Default* blend trees.
+        //
+        // Only the desktop branch takes the idle-pose overrides. In VR the stance pose is what the
+        // IK solver blends the tracked head and hands against, and a pose that moves the hips or
+        // spreads the feet fights it - arms end up short, the avatar leans. So VR stays on the
+        // built-in stance poses, which is why the inspector labels the Idle section "Desktop Mode".
+        // The builder replaces motions by name and both branches play clips of the same name, so
+        // that promise only holds while the replacement is scoped to this state machine.
+        //
+        // Only the desktop name is used by the build - the VR one is here because the two are one
+        // contract with the template, and the tests that pin the branches read both.
+        public const string DesktopLocomotionStateMachine = "Desktop Locomotion";
+        public const string VrLocomotionStateMachine = "VR Locomotion";
+
         // The idle (velocity-zero) clip embedded at the centre of each Default* locomotion blend
         // tree. The builder swaps these for the stance's idle selector.
         public const string StandIdleTarget = "IdleStandDefault";

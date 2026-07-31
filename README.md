@@ -9,7 +9,9 @@ animator controllers. Installs through Modular Avatar.
 ## Features
 
 * **Idle poses** — swap the standing, crouching, and prone idle animations, and register extra
-  poses that you can switch between from the expression menu at runtime.
+  poses that you can switch between from the expression menu at runtime. Desktop mode only: in VR
+  the stance pose is what IK blends your tracked head and hands against, so a custom one fights the
+  solver — VR keeps the built-in poses and walks as usual.
 * **Sleeping** *(a separate module — its own button, its own prefab)* — a Sleep sub-menu with two
   toggles: *Sleep Loco* plays a sleeping pose while prone (three clips blend by head orientation —
   facing up, facing down, on your side — detected from real head tracking, and locomotion keeps
