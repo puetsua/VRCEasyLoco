@@ -1,34 +1,37 @@
 # AGENTS.md
 
-Guidance for Codex when working in `vrchat.puetsuaworkshop.easyloco`.
+Guidance for AI coding agents working in `vrchat.puetsuaworkshop.easyloco`.
 
 ## What this is
 
-`vrchat.puetsuaworkshop.easyloco` is a Unity Editor-only VPM/UPM package for VRChat avatar locomotion editing. It should help users inspect, adjust, and eventually generate safer locomotion controller changes without hand-editing Animator Controller assets.
+`vrchat.puetsuaworkshop.easyloco` is a Unity Editor-only VPM/UPM package for VRChat avatar locomotion editing — inspect, adjust, and eventually generate safer locomotion controller changes without hand-editing Animator Controller assets.
 
-The package is developed inside the parent Unity project at `C:\Data\Projects\Unity\VRCAvatarTool`, but this folder is its own nested git repository. Commits made here belong to the EasyLoco package repository.
+Developed inside the parent Unity project at `C:\Data\Projects\Unity\VRCAvatarTool`, but this folder is its own nested git repo. **Commits here belong to the EasyLoco package repo, not the outer project repo** — don't move files across the boundary without checking which repo's history they land in.
 
-## Build and validation
+## Build and run
 
-There is no CLI build. Unity imports and compiles the package through the editor assembly definition in `Editor/`.
+No CLI build — Unity compiles the package via the `Editor/` asmdef. Validate in Unity 2022.3.22f1.
 
-`Tests/Editor/` holds EditMode tests (`Puetsua.VRCEasyLoco.Editor.Tests`) covering the pieces that
-are pure logic: the localized dataset contract, the idle pose name rules, and the expression menu
-pose values. Run them from `Window -> General -> Test Runner -> EditMode`. They reach package
-internals through the `InternalsVisibleTo` in `Editor/AssemblyInfo.cs`, and are repo-only - the
-release workflow's exclusion list keeps `Tests` out of the shipped zip and `.unitypackage`.
+EditMode tests (pure logic: localized dataset contract, idle pose name rules, expression menu pose values, blend-tree cloning, locomotion/sleep template motion matching): `Window → General → Test Runner → EditMode → Run All`. Assembly `Puetsua.VRCEasyLoco.Editor.Tests`, reaches internals via `InternalsVisibleTo` in `Editor/AssemblyInfo.cs`.
 
-Anything that needs a live avatar, Modular Avatar, or the VRChat SDK is not covered; validate that by
-opening the parent project in Unity 2022.3.22f1 and using:
+Live-avatar / Modular Avatar / VRChat SDK validation: open the parent project, `GameObject → Add EasyLoco Component` on an avatar, then the inspector's **Build Modular Avatar** button. Sample avatars in `Assets/main.unity` (`Robot`, `nekobot`, `eniisyua5`, `bot1`/`bot2`/`bot3`).
 
-- `GameObject -> Add EasyLoco Component` on an avatar, then the EasyLoco inspector's **Build Modular Avatar** button
-- The sample avatars in `Assets/main.unity`
+## Project structure
 
-Do not edit Unity-generated root `.csproj` or `.sln` files.
+```
+Editor/   asmdef: Puetsua.VRCEasyLoco.Editor
+  EasyLocoConst.cs           Constants — parameter/layer/menu/prefab names. Refer by name, never hard-code.
+  MotionReplacements.cs      Name→Motion lookup ledger; the only way to take a replacement out (see Code style)
+  LocalizedTextDataset.cs / .Data.cs   Localized string fields + per-language strings
+  AssemblyInfo.cs            InternalsVisibleTo → Tests
+Tests/Editor/   EditMode tests (asmdef: Puetsua.VRCEasyLoco.Editor.Tests) — repo-only, excluded from release zip/unitypackage
+Runtime/        Reserved for future runtime components (currently empty of logic)
+package.json    VPM manifest; `version` is the release trigger
+```
+
+`Animations/` `Animators/` `Menus/` `Prefabs/` are template assets the build writes into by name; `Textures/` is package art; `Documentation~/` ships docs (the `~` suffix makes Unity skip import). `*.meta` files are Unity-generated GUIDs — keep in sync, never edit by hand.
 
 ## Scope
-
-Keep package code under this folder. Do not modify sample avatars, vendored dependencies, or other Puetsua tools unless the requested change explicitly needs it.
 
 EasyLoco should start conservative:
 
@@ -37,62 +40,45 @@ EasyLoco should start conservative:
 - prefer generated assets or explicit copy/edit flows when adding controller generation
 - keep VRChat SDK interactions idempotent and easy to audit
 
+File-level never-touch rules live in the Boundaries table below.
+
+## Code style
+
+Namespace `Puetsua.VRCEasyLoco.Editor`. Editor entry point: the `EasyLoco` component + its custom inspector (`GameObject → Add EasyLoco Component`). Constants live in `EasyLocoConst.cs` — refer by name, never hard-code.
+
+Replacement lookups go through `MotionReplacements.TryGet` — the ledger that records every name a walk found; `ThrowIfUnmatched` fails the build on any unmatched key.
+
+```csharp
+// ✅ Good — take replacements out through the ledger, unmatched names fail the build
+if (replacements.TryGet(motionName, out var replacement))
+    state.motion = replacement;
+
+// ❌ Bad — bypasses the ledger; a missing name disappears without a word
+state.motion = replacementMap.TryGetValue(motionName, out var m) ? m : state.motion;
+```
+
 ## Conventions
 
-- Namespace: `Puetsua.VRCEasyLoco.Editor`
-- Editor entry point: the `EasyLoco` component + its custom inspector (added via `GameObject -> Add EasyLoco Component`)
-- Code lives under `Editor/` until runtime components are truly required
-- Constants live in `EasyLocoConst.cs`; do not duplicate package names or menu labels
-- The build writes the user's clips into the templates by name - a motion's name in the locomotion
-  and sleeping trees, a state's name in the Action controller. Those maps go through
-  `MotionReplacements`, which records every name a walk actually found and makes the build throw on
-  any it did not: a key that matches nothing means the template stopped carrying what this package
-  names, and the animation would otherwise go missing without a word. Adding a new replacement path
-  means taking replacements out through `TryGet`, not reaching around it
 - Every user-facing inspector string lives in `LocalizedTextDataset` (field list and language
   preference in `LocalizedTextDataset.cs`, the strings themselves in `LocalizedTextDataset.Data.cs`),
   reached through the `Localized` shorthand. Adding a string means adding a field and filling it in
   **every** language dataset - there is no per-key fallback, so a missing translation draws blank.
-- Expression menu labels are localized too, but they are serialized component data baked onto the
-  avatar rather than redrawn every frame, so they are *synced* instead. `SyncPoseNames` runs from
-  `OnEnable` and on a language switch, and the rule is:
-  - row 0's name always follows the current language - that field is disabled in the inspector, so
-    it can never be a user edit and there is nothing there to protect
-  - the other rows follow only while their stance is still pristine: same row count, same built-in
-    clips, and names matching the built-ins in **any** supported language (that last part is what
-    `LocalizedTextDataset.All` is for - an English-authored component must not look customised just
-    because the user has since switched)
-  - pristine-ness is judged per stance, so editing the stand poses must not freeze crouch and prone
-
-  The cost is that selecting a component can rewrite and dirty it: two people sharing a project with
-  different language prefs will see the `menuName`s flip back and forth in their diffs. That is the
-  unavoidable price of per-user language driving shared serialized data, and it is the intended
-  trade - do not "fix" it by deleting the sync.
+- Expression menu labels are serialized data baked onto the avatar, so they are *synced* (not redrawn). `SyncPoseNames` runs from `OnEnable` and on language switch:
+  - row 0 always follows the current language (that inspector field is disabled — no user edit to protect)
+  - other rows follow only while their stance is still pristine: same row count, same built-in clips, names matching built-ins in **any** supported language (`LocalizedTextDataset.All`). Pristine-ness is per stance, so editing stand poses must not freeze crouch/prone.
+  - Cost: selecting a component can rewrite and dirty it — shared projects with different language prefs see `menuName`s flip in diffs. This is the intended trade-off of per-user language driving shared serialized data. **Do not "fix" it by deleting the sync.**
 - Generated asset and file names (`StanceBuild.Key`, `GeneratedAssetPrefix`, controller and menu
   filenames) stay ASCII and language-independent, so a rebuild under another language overwrites the
   previous run's files instead of orphaning them.
 
+## Boundaries
+
+| Tier | Rule |
+|------|------|
+| ✅ Always | Keep code under this folder; reference constants by name from `EasyLocoConst.cs`; take replacement motions through `MotionReplacements.TryGet`; fill every language dataset when adding a string; keep generated filenames ASCII; run EditMode tests before considering a change done. |
+| ⚠️ Ask first | Adding new replacement paths or new localized strings (requires updating every language dataset); schema-level changes to `StatusPlan`-style baked assets; touching anything outside this folder (sample avatars, vendored deps, sibling Puetsua tools). |
+| 🚫 Never | Edit Unity-generated root `.csproj` / `.sln` / `*.meta` files by hand; commit secrets or API keys; "fix" the `SyncPoseNames` menu-name flipping by deleting the sync (it is an intentional trade-off); hard-code parameter/layer/menu/prefab names inside merging logic instead of using `EasyLocoConst.cs`; reach around `MotionReplacements` when looking up a motion; move files across the nested-repo boundary without checking which repo they belong to. |
+
 ## Release
 
-Releases are intended to mirror the ButtonWizard package:
-
-- bump `version` in `package.json`
-- run `.github/workflows/release.yaml` manually
-- publish a zip and `.unitypackage`
-- notify the `puetsua/vrc-stuff` VPM listing through repository dispatch
-
-The workflow ships every root entry except dotfiles and the exclusion list in
-its `Make Package Folder` step - this file is on that list. Anything else added
-at the root lands in the zip and the `.unitypackage`, so add it to that list if
-it is repo-only.
-
-Release notes are generated by [git-cliff](https://git-cliff.org) from the commit
-subjects since the previous tag; `.github/cliff.toml` holds the grouping rules.
-Subjects are grouped by their leading verb, so write them in the imperative -
-`Add ...` / `Fix ...` / `Remove ...` land in their own sections and everything
-else falls under Changed. `chore:`/`ci:`-prefixed commits are left out.
-
-Preview what a release would say before running the workflow:
-
-    git cliff --config .github/cliff.toml --unreleased --tag <version> --strip all
-
+Maintainer-only. Full procedure (workflow exclusion list, git-cliff changelog rules, preview command) lives in [`Documentation~/release.md`](Documentation~/release.md). Short version: bump `version` in `package.json`, run `.github/workflows/release.yaml` manually, write commit subjects in the imperative (`Add`/`Fix`/`Remove`).
