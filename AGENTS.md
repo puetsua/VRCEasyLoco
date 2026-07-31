@@ -43,6 +43,12 @@ EasyLoco should start conservative:
 - Editor entry point: the `EasyLoco` component + its custom inspector (added via `GameObject -> Add EasyLoco Component`)
 - Code lives under `Editor/` until runtime components are truly required
 - Constants live in `EasyLocoConst.cs`; do not duplicate package names or menu labels
+- The build writes the user's clips into the templates by name - a motion's name in the locomotion
+  and sleeping trees, a state's name in the Action controller. Those maps go through
+  `MotionReplacements`, which records every name a walk actually found and makes the build throw on
+  any it did not: a key that matches nothing means the template stopped carrying what this package
+  names, and the animation would otherwise go missing without a word. Adding a new replacement path
+  means taking replacements out through `TryGet`, not reaching around it
 - Every user-facing inspector string lives in `LocalizedTextDataset` (field list and language
   preference in `LocalizedTextDataset.cs`, the strings themselves in `LocalizedTextDataset.Data.cs`),
   reached through the `Localized` shorthand. Adding a string means adding a field and filling it in

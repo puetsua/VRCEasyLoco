@@ -78,7 +78,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var controller = TwoBranchController(idle, out var desktopState, out var vrState);
 
             EasyLocoModularAvatarBuilder.ReplaceMotions(controller,
-                new Dictionary<string, Motion> { { EasyLocoConst.StandIdleTarget, replacement } },
+                Replacements(EasyLocoConst.StandIdleTarget, replacement),
                 "Assets", EasyLocoConst.DesktopLocomotionStateMachine);
 
             Assert.That(desktopState.motion, Is.SameAs(replacement), "the desktop stance should take the user's pose");
@@ -94,7 +94,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var controller = TwoBranchController(idle, out var desktopState, out var vrState);
 
             EasyLocoModularAvatarBuilder.ReplaceMotions(controller,
-                new Dictionary<string, Motion> { { EasyLocoConst.StandIdleTarget, replacement } },
+                Replacements(EasyLocoConst.StandIdleTarget, replacement),
                 "Assets", null);
 
             Assert.That(desktopState.motion, Is.SameAs(replacement));
@@ -109,7 +109,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var controller = TwoBranchController(idle, out _, out var vrState);
 
             Assert.That(() => EasyLocoModularAvatarBuilder.ReplaceMotions(controller,
-                    new Dictionary<string, Motion> { { EasyLocoConst.StandIdleTarget, Clip("UsersOwnIdle") } },
+                    Replacements(EasyLocoConst.StandIdleTarget, Clip("UsersOwnIdle")),
                     "Assets", "Renamed Locomotion"),
                 Throws.InvalidOperationException,
                 "a scope nobody matches must fail the build, not quietly replace everywhere");
@@ -141,6 +141,11 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             spawned.Add(state);
             state.motion = idle;
             return state;
+        }
+
+        private static MotionReplacements Replacements(string name, Motion replacement)
+        {
+            return new MotionReplacements(new Dictionary<string, Motion> { { name, replacement } });
         }
 
         private AnimationClip Clip(string name)

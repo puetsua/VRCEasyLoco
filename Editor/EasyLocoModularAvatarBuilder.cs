@@ -49,6 +49,9 @@ namespace Puetsua.VRCEasyLoco.Editor
             public Motion Motion;
             public bool HasMenu;
 
+            /// <summary>Whether this stance replaces the template's built-in idle at all.</summary>
+            public bool Overrides => Entries != null && Entries.Count > 0;
+
             public StanceBuild(string key, string menuLabel, List<EasyLoco.IdlePose> poses, string idleTargetName, string paramName)
             {
                 Key = key;
@@ -227,6 +230,23 @@ namespace Puetsua.VRCEasyLoco.Editor
                 new StanceBuild("Prone", Localized.menuPronePoses, easyLoco.pronePoses, EasyLocoConst.ProneIdleTarget, EasyLocoConst.IdleProneParam),
             };
 
+            foreach (var stance in stances)
+            {
+                SelectIdleEntries(stance);
+            }
+
+            var afkOverrides = BuildAfkOverrides(easyLoco);
+
+            // Checked before a single asset is written. Everything below this line is destructive:
+            // BuildController deletes the previous generated controller and copies a fresh one,
+            // which mints a new GUID, and the avatar's installed prefab only catches up when the
+            // build reaches SaveAsPrefabAsset. Throwing after that point would leave a working
+            // avatar pointing at a controller that no longer exists - so a template that stopped
+            // carrying a name this package writes into has to fail here, with nothing touched yet.
+            EnsureTemplateCarriesMotions(BaseTemplatePath, stances.Where(stance => stance.Overrides).Select(stance => stance.IdleTargetName),
+                EasyLocoConst.DesktopLocomotionStateMachine);
+            EnsureTemplateCarriesStates(ActionTemplatePath, afkOverrides.Keys);
+
             // Build each stance's idle motion: null (keep built-in), a single override clip, or a
             // selector blend tree when more than one pose is registered.
             var baseReplacements = new Dictionary<string, Motion>();
@@ -256,7 +276,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController, MergeAnimatorMode.Replace);
 
             var actionController = (AnimatorController)BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", new Dictionary<string, Motion>());
-            ApplyAfkOverrides(actionController, easyLoco);
+            ApplyStateMotionOverrides(actionController, new MotionReplacements(afkOverrides));
             EditorUtility.SetDirty(actionController);
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Action, actionController, MergeAnimatorMode.Replace);
 
@@ -301,6 +321,11 @@ namespace Puetsua.VRCEasyLoco.Editor
         // avatar, so the generated controller carries whatever the component overrides.
         private static AnimatorController BuildSleepController(EasyLoco easyLoco, string outputFolder)
         {
+            // Same pre-flight as the main build, for the same reason: everything after it writes,
+            // and the controller copy mints a new GUID that only the sleep prefab's save catches up
+            // with.
+            EnsureTemplateCarriesMotions(SleepTemplatePath, SleepTargets(easyLoco.sleep), null);
+
             var replacements = new Dictionary<string, Motion>();
             AddSleepReplacements(replacements, easyLoco.sleep, outputFolder);
 
@@ -360,23 +385,30 @@ namespace Puetsua.VRCEasyLoco.Editor
             return prefabPath;
         }
 
-        private static void BuildIdleSelector(StanceBuild stance, string outputFolder)
+        // Which poses this stance actually contributes, and therefore whether it replaces the
+        // template's built-in idle at all. Kept apart from BuildIdleSelector because it writes
+        // nothing: the build has to know what it is going to look for in the templates before it
+        // starts writing assets (see the pre-flight in BuildHost).
+        private static void SelectIdleEntries(StanceBuild stance)
         {
             stance.Entries = (stance.Poses ?? new List<EasyLoco.IdlePose>())
                 .Where(pose => pose != null && pose.clip != null)
                 .ToList();
 
+            stance.HasMenu = stance.Entries.Count > 1;
+        }
+
+        private static void BuildIdleSelector(StanceBuild stance, string outputFolder)
+        {
             if (stance.Entries.Count == 0)
             {
                 stance.Motion = null; // keep the template's built-in idle
-                stance.HasMenu = false;
                 return;
             }
 
             if (stance.Entries.Count == 1)
             {
                 stance.Motion = stance.Entries[0].clip; // single override, no selector/menu
-                stance.HasMenu = false;
                 return;
             }
 
@@ -410,7 +442,123 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(tree);
 
             stance.Motion = tree;
-            stance.HasMenu = true;
+        }
+
+        // The pre-flight: does the template still carry every name the build is about to write into?
+        // Read-only, and run before anything is generated, so a template that renamed one of them
+        // fails while the avatar's previous build is still whole. The walk after the copy stays as
+        // well - it is tied to what was actually swapped, where this one only asks what is reachable.
+        private static void EnsureTemplateCarriesMotions(string sourcePath, IEnumerable<string> names, string scopeStateMachineName)
+        {
+            var expected = ExpectedNames(names);
+            if (expected.IsEmpty)
+            {
+                return;
+            }
+
+            var template = LoadTemplate(sourcePath);
+            var found = new HashSet<string>();
+            foreach (var root in CollectReplacementRoots(template, scopeStateMachineName))
+            {
+                CollectMotionNames(root, found);
+            }
+
+            MarkFound(expected, found);
+            expected.ThrowIfUnmatched("motion", Scoped(sourcePath, scopeStateMachineName));
+        }
+
+        private static void EnsureTemplateCarriesStates(string sourcePath, IEnumerable<string> names)
+        {
+            var expected = ExpectedNames(names);
+            if (expected.IsEmpty)
+            {
+                return;
+            }
+
+            var found = new HashSet<string>();
+            foreach (var layer in LoadTemplate(sourcePath).layers)
+            {
+                CollectStateNames(layer.stateMachine, found);
+            }
+
+            MarkFound(expected, found);
+            expected.ThrowIfUnmatched("state", sourcePath);
+        }
+
+        // The pre-flight has no motions to put anywhere - it only cares about the names - but it
+        // reports through the same ledger so a rename reads identically wherever it is caught.
+        private static MotionReplacements ExpectedNames(IEnumerable<string> names)
+        {
+            return new MotionReplacements(names.Distinct().ToDictionary(name => name, name => (Motion)null));
+        }
+
+        private static void MarkFound(MotionReplacements expected, IEnumerable<string> found)
+        {
+            foreach (var name in found)
+            {
+                expected.TryGet(name, out _);
+            }
+        }
+
+        private static void CollectMotionNames(AnimatorStateMachine stateMachine, HashSet<string> into)
+        {
+            foreach (var childState in stateMachine.states)
+            {
+                CollectMotionNames(childState.state.motion, into);
+            }
+
+            foreach (var childStateMachine in stateMachine.stateMachines)
+            {
+                CollectMotionNames(childStateMachine.stateMachine, into);
+            }
+        }
+
+        // Leaves only, because leaves are all the replacement walk ever matches: a blend tree is
+        // recursed into, never swapped by its own name. Collecting tree names here would let a key
+        // naming one pass the pre-flight and then fail after the copy, which is the one outcome
+        // this check exists to prevent.
+        private static void CollectMotionNames(Motion motion, HashSet<string> into)
+        {
+            if (motion == null)
+            {
+                return;
+            }
+
+            if (motion is BlendTree blendTree)
+            {
+                foreach (var child in blendTree.children)
+                {
+                    CollectMotionNames(child.motion, into);
+                }
+
+                return;
+            }
+
+            into.Add(motion.name);
+        }
+
+        private static void CollectStateNames(AnimatorStateMachine stateMachine, HashSet<string> into)
+        {
+            foreach (var childState in stateMachine.states)
+            {
+                into.Add(childState.state.name);
+            }
+
+            foreach (var childStateMachine in stateMachine.stateMachines)
+            {
+                CollectStateNames(childStateMachine.stateMachine, into);
+            }
+        }
+
+        private static AnimatorController LoadTemplate(string sourcePath)
+        {
+            var template = AssetDatabase.LoadAssetAtPath<AnimatorController>(sourcePath);
+            if (template == null)
+            {
+                throw new FileNotFoundException("Project template animator was not found.", sourcePath);
+            }
+
+            return template;
         }
 
         // scopeStateMachineName limits the replacement to the state machines of that name; null
@@ -418,10 +566,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         private static RuntimeAnimatorController BuildController(string sourcePath, string outputFolder, string fileName, IReadOnlyDictionary<string, Motion> replacements,
             string scopeStateMachineName = null)
         {
-            if (AssetDatabase.LoadAssetAtPath<AnimatorController>(sourcePath) == null)
-            {
-                throw new FileNotFoundException("Project template animator was not found.", sourcePath);
-            }
+            LoadTemplate(sourcePath);
 
             var outputPath = outputFolder + "/" + fileName;
             if (AssetDatabase.LoadAssetAtPath<Object>(outputPath) != null)
@@ -435,39 +580,78 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(outputPath);
-            ReplaceMotions(controller, replacements, outputFolder, scopeStateMachineName);
+            ReplaceMotions(controller, new MotionReplacements(replacements), outputFolder, scopeStateMachineName);
             EditorUtility.SetDirty(controller);
             return controller;
         }
 
-        // A clip equal to the built-in is skipped: registering it would force a needless clone of
-        // the whole sleeping tree for an avatar that never customised anything.
+        // Which sleeping slots this component actually overrides. Pure, and separate from producing
+        // the clips for them, because the build has to know the names before it writes anything.
+        //
+        // A clip equal to the built-in is not an override: registering it would force a needless
+        // clone of the whole sleeping tree for an avatar that never customised anything.
         //
         // The on-side pose fans out to one placeholder per tree. Left alone, the placeholders play
-        // as authored and nothing is generated. Overridden, each placeholder is replaced by a copy
-        // of the user's pose wearing that placeholder's root-transform settings, so the slot keeps
-        // its yaw without the builder knowing what any slot's yaw is.
-        private static void AddSleepReplacements(IDictionary<string, Motion> replacements, EasyLoco.SleepSet sleep, string outputFolder)
+        // as authored and nothing is generated. Overridden, each placeholder slot is listed here and
+        // filled below by a copy of the user's pose wearing that placeholder's root-transform
+        // settings, so the slot keeps its yaw without the builder knowing what any slot's yaw is.
+        private static List<string> SleepTargets(EasyLoco.SleepSet sleep)
         {
-            AddSleepReplacement(replacements, EasyLocoConst.SleepUpTarget, EasyLocoConst.SleepUpClip, sleep?.up);
-            AddSleepReplacement(replacements, EasyLocoConst.SleepDownTarget, EasyLocoConst.SleepDownClip, sleep?.down);
-
-            var sideClip = sleep?.side;
-            if (sideClip == null || sideClip == AssetDatabase.LoadAssetAtPath<AnimationClip>(EasyLocoConst.SleepSideClip))
+            var targets = new List<string>();
+            if (IsOverride(sleep?.up, EasyLocoConst.SleepUpClip))
             {
-                return;
+                targets.Add(EasyLocoConst.SleepUpTarget);
+            }
+
+            if (IsOverride(sleep?.down, EasyLocoConst.SleepDownClip))
+            {
+                targets.Add(EasyLocoConst.SleepDownTarget);
+            }
+
+            if (!IsOverride(sleep?.side, EasyLocoConst.SleepSideClip))
+            {
+                return targets;
             }
 
             foreach (var target in EasyLocoConst.SleepSideTargets)
             {
-                var placeholder = AssetDatabase.LoadAssetAtPath<AnimationClip>(EasyLocoConst.SleepSidePlaceholderClip(target));
-                if (placeholder == null || placeholder == sideClip)
+                var placeholder = SleepSidePlaceholder(target);
+                if (placeholder != null && placeholder != sleep.side)
                 {
-                    continue;
+                    targets.Add(target);
                 }
-
-                replacements[target] = CreateSideClipForSlot(sideClip, placeholder, outputFolder);
             }
+
+            return targets;
+        }
+
+        private static void AddSleepReplacements(IDictionary<string, Motion> replacements, EasyLoco.SleepSet sleep, string outputFolder)
+        {
+            foreach (var target in SleepTargets(sleep))
+            {
+                if (target == EasyLocoConst.SleepUpTarget)
+                {
+                    replacements[target] = sleep.up;
+                }
+                else if (target == EasyLocoConst.SleepDownTarget)
+                {
+                    replacements[target] = sleep.down;
+                }
+                else
+                {
+                    replacements[target] = CreateSideClipForSlot(sleep.side, SleepSidePlaceholder(target), outputFolder);
+                }
+            }
+        }
+
+        private static AnimationClip SleepSidePlaceholder(string target)
+        {
+            return AssetDatabase.LoadAssetAtPath<AnimationClip>(EasyLocoConst.SleepSidePlaceholderClip(target));
+        }
+
+        private static bool IsOverride(AnimationClip clip, string builtInPath)
+        {
+            return clip != null && clip != AssetDatabase.LoadAssetAtPath<AnimationClip>(builtInPath);
         }
 
         // The user's pose, wearing the placeholder's root-transform settings. Only that group is
@@ -502,29 +686,20 @@ namespace Puetsua.VRCEasyLoco.Editor
             return clip;
         }
 
-        private static void AddSleepReplacement(IDictionary<string, Motion> replacements, string targetName, string builtInPath, AnimationClip clip)
+        private static Dictionary<string, Motion> BuildAfkOverrides(EasyLoco easyLoco)
         {
-            if (clip == null)
-            {
-                return;
-            }
-
-            var builtIn = AssetDatabase.LoadAssetAtPath<AnimationClip>(builtInPath);
-            if (clip == builtIn)
-            {
-                return;
-            }
-
-            replacements[targetName] = clip;
+            var overrides = new Dictionary<string, Motion>();
+            AddAfkOverrides(overrides, EasyLocoConst.AfkStances[0], easyLoco.standAfk);
+            AddAfkOverrides(overrides, EasyLocoConst.AfkStances[1], easyLoco.crouchAfk);
+            AddAfkOverrides(overrides, EasyLocoConst.AfkStances[2], easyLoco.proneAfk);
+            return overrides;
         }
 
-        private static void ApplyAfkOverrides(AnimatorController controller, EasyLoco easyLoco)
+        // The AFK counterpart of ReplaceMotions: same ledger, but the names are states rather than
+        // motions - the AFK clips are the whole motion of a state, so there is no tree to walk into.
+        internal static void ApplyStateMotionOverrides(AnimatorController controller, MotionReplacements overrides)
         {
-            var overrides = new Dictionary<string, AnimationClip>();
-            AddAfkOverrides(overrides, "Stand", easyLoco.standAfk);
-            AddAfkOverrides(overrides, "Crouch", easyLoco.crouchAfk);
-            AddAfkOverrides(overrides, "Prone", easyLoco.proneAfk);
-            if (overrides.Count == 0)
+            if (controller == null || overrides == null || overrides.IsEmpty)
             {
                 return;
             }
@@ -533,21 +708,23 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 SetStateMotionsByName(layer.stateMachine, overrides);
             }
+
+            overrides.ThrowIfUnmatched("state", Describe(controller));
         }
 
-        private static void AddAfkOverrides(IDictionary<string, AnimationClip> map, string stance, EasyLoco.AfkSet set)
+        private static void AddAfkOverrides(IDictionary<string, Motion> map, string stance, EasyLoco.AfkSet set)
         {
             if (set == null)
             {
                 return;
             }
 
-            AddClipOverride(map, EasyLocoConst.AfkStatePrefix + stance + " Entering", set.entering);
-            AddClipOverride(map, EasyLocoConst.AfkStatePrefix + stance + " Looping", set.looping);
-            AddClipOverride(map, EasyLocoConst.AfkStatePrefix + stance + " Exiting", set.exiting);
+            AddClipOverride(map, EasyLocoConst.AfkStateName(stance, EasyLocoConst.AfkStages[0]), set.entering);
+            AddClipOverride(map, EasyLocoConst.AfkStateName(stance, EasyLocoConst.AfkStages[1]), set.looping);
+            AddClipOverride(map, EasyLocoConst.AfkStateName(stance, EasyLocoConst.AfkStages[2]), set.exiting);
         }
 
-        private static void AddClipOverride(IDictionary<string, AnimationClip> map, string stateName, AnimationClip clip)
+        private static void AddClipOverride(IDictionary<string, Motion> map, string stateName, AnimationClip clip)
         {
             if (clip != null)
             {
@@ -555,12 +732,14 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        private static void SetStateMotionsByName(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, AnimationClip> overrides)
+        private static void SetStateMotionsByName(AnimatorStateMachine stateMachine, MotionReplacements overrides)
         {
             foreach (var childState in stateMachine.states)
             {
                 var state = childState.state;
-                if (overrides.TryGetValue(state.name, out var clip) && state.motion != clip)
+                // The lookup comes first so a state already playing the user's clip still counts as
+                // found - it is the name that has to exist, not the change.
+                if (overrides.TryGet(state.name, out var clip) && state.motion != clip)
                 {
                     state.motion = clip;
                     EditorUtility.SetDirty(state);
@@ -587,9 +766,9 @@ namespace Puetsua.VRCEasyLoco.Editor
             controller.AddParameter(name, AnimatorControllerParameterType.Float);
         }
 
-        internal static void ReplaceMotions(AnimatorController controller, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string scopeStateMachineName)
+        internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName)
         {
-            if (controller == null || replacements == null || replacements.Count == 0)
+            if (controller == null || replacements == null || replacements.IsEmpty)
             {
                 return;
             }
@@ -601,6 +780,22 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 ReplaceMotions(root, replacements, outputFolder, controllerPath, clones);
             }
+
+            // The pre-flight already asked the template this, before anything was written. This one
+            // is tied to the swaps that actually happened, so the two disagreeing is itself worth a
+            // failed build.
+            replacements.ThrowIfUnmatched("motion", Scoped(Describe(controller), scopeStateMachineName));
+        }
+
+        private static string Describe(AnimatorController controller)
+        {
+            var path = AssetDatabase.GetAssetPath(controller);
+            return string.IsNullOrEmpty(path) ? controller.name : path;
+        }
+
+        private static string Scoped(string where, string scopeStateMachineName)
+        {
+            return string.IsNullOrEmpty(scopeStateMachineName) ? where : $"\"{scopeStateMachineName}\" in {where}";
         }
 
         // Where the replacement is allowed to walk. An unscoped build starts at every layer; a
@@ -665,7 +860,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // motion of several states, and cloning it per state would have each clone delete the asset
         // the previous state was pointed at, leaving that state with a missing motion. The clone
         // path is deterministic, so the cache is what keeps that safe.
-        private static void ReplaceMotions(AnimatorStateMachine stateMachine, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
+        private static void ReplaceMotions(AnimatorStateMachine stateMachine, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
         {
             foreach (var childState in stateMachine.states)
             {
@@ -684,7 +879,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        private static Motion ReplaceMotion(Motion motion, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
+        private static Motion ReplaceMotion(Motion motion, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
         {
             if (motion == null)
             {
@@ -719,10 +914,10 @@ namespace Puetsua.VRCEasyLoco.Editor
                 return blendTree;
             }
 
-            return replacements.TryGetValue(motion.name, out var replacement) ? replacement : motion;
+            return replacements.TryGet(motion.name, out var replacement) ? replacement : motion;
         }
 
-        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, IReadOnlyDictionary<string, Motion> replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
+        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
         {
             var children = blendTree.children;
             var changed = false;
@@ -745,7 +940,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        private static bool SubtreeContainsReplacement(BlendTree blendTree, IReadOnlyDictionary<string, Motion> replacements)
+        private static bool SubtreeContainsReplacement(BlendTree blendTree, MotionReplacements replacements)
         {
             foreach (var child in blendTree.children)
             {
@@ -757,7 +952,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                         return true;
                     }
                 }
-                else if (motion != null && replacements.ContainsKey(motion.name))
+                else if (motion != null && replacements.Contains(motion.name))
                 {
                     return true;
                 }
@@ -766,7 +961,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        private static BlendTree CloneBlendTree(BlendTree source, IReadOnlyDictionary<string, Motion> replacements, string outputFolder)
+        private static BlendTree CloneBlendTree(BlendTree source, MotionReplacements replacements, string outputFolder)
         {
             var nested = new List<BlendTree>();
             var root = CloneBlendTreeInMemory(source, replacements, nested);
@@ -804,7 +999,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // Assigning the public properties one at a time would silence the assert too, but it
         // silently drops m_NormalizedBlendValues - serialized, yet with no setter to reach it -
         // along with anything Unity adds to the type later.
-        internal static BlendTree CloneBlendTreeInMemory(BlendTree source, IReadOnlyDictionary<string, Motion> replacements, List<BlendTree> collected)
+        internal static BlendTree CloneBlendTreeInMemory(BlendTree source, MotionReplacements replacements, List<BlendTree> collected)
         {
             var clone = new BlendTree();
             EditorUtility.CopySerialized(source, clone);
@@ -820,7 +1015,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 {
                     children[i].motion = CloneBlendTreeInMemory(childTree, replacements, collected);
                 }
-                else if (motion != null && replacements.TryGetValue(motion.name, out var replacement))
+                else if (motion != null && replacements.TryGet(motion.name, out var replacement))
                 {
                     children[i].motion = replacement;
                 }
