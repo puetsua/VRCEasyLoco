@@ -60,6 +60,24 @@ if (replacements.TryGet(motionName, out var replacement))
 state.motion = replacementMap.TryGetValue(motionName, out var m) ? m : state.motion;
 ```
 
+## Commit messages
+
+Follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). This drives the
+auto-generated changelog and the VPM release notes. Types this repo uses:
+
+| Type | Use for |
+|------|---------|
+| `feat` | New user-visible behaviour, new inspector field, new template state/transition |
+| `fix` | Bug fix in builder logic, template transition threshold, or inspector flow |
+| `chore` | CI, tooling, metadata, version bumps — excluded from changelog by default |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `docs` | README, `AGENTS.md`, inline comments |
+| `test` | EditMode test additions or fixes |
+
+The `scope` (e.g. `feat(animator):`) is optional. Breaking changes must include a `BREAKING CHANGE:`
+footer or `!` after the type/scope. The release workflow's git-cliff groups by verb, so
+`feat`/`fix`/`chore` prefixes are what matter most.
+
 ## Conventions
 
 - Every user-facing inspector string lives in `LocalizedTextDataset` (field list and language
@@ -84,4 +102,4 @@ state.motion = replacementMap.TryGetValue(motionName, out var m) ? m : state.mot
 
 ## Release
 
-Maintainer-only. Full procedure (workflow exclusion list, git-cliff changelog rules, preview command) lives in [`Documentation~/release.md`](Documentation~/release.md). Short version: bump `version` in `package.json`, run `.github/workflows/release.yaml` manually, write commit subjects in the imperative (`Add`/`Fix`/`Remove`).
+Maintainer-only. Full procedure (workflow exclusion list, git-cliff changelog rules, preview command) lives in [`Documentation~/release.md`](Documentation~/release.md). Short version: bump `version` in `package.json`, run `.github/workflows/release.yaml` manually, and follow the [Conventional Commits](#commit-messages) rules above so the changelog groups correctly.
