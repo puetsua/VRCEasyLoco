@@ -39,8 +39,9 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void TheVrBranchPlaysTheSameIdleClips()
         {
-            // Not replaced - VR keeps the built-in poses - but the branch is a copy of the desktop
-            // one, and a copy that drifted this far apart is worth knowing about.
+            // Not replaced - VR keeps the built-in poses - and the branch now carries its own
+            // locomotion trees so desktop idle-pose overrides do not fight IK. The trees still
+            // embed the same idle clip names, so a drift here is still worth knowing about.
             var played = MotionNames(LocomotionTemplate.Branch(EasyLocoConst.VrLocomotionStateMachine));
 
             Assert.That(played, Is.SupersetOf(new[]
