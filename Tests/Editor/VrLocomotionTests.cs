@@ -82,7 +82,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var idleTargetByStance = new Dictionary<string, string>
             {
                 { "Standing", EasyLocoConst.StandIdleTarget },
-                { "Crouching", EasyLocoConst.CrouchIdleTarget },
+                { "Crouching", EasyLocoConst.VrCrouchIdleTarget },
                 { "Prone", EasyLocoConst.ProneIdleTarget },
             };
 
@@ -90,7 +90,10 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             foreach (var stance in LocomotionTemplate.Stances)
             {
                 var tree = vr[stance].motion as BlendTree;
-                var idleChild = tree.children.OrderBy(c => c.threshold).FirstOrDefault();
+                // These are 2D blend trees: the idle clip sits at the origin (no movement).
+                // Thresholds are serialized in file order, so the lowest one is not the idle slot.
+                var idleChild = tree.children.FirstOrDefault(c =>
+                    Mathf.Approximately(c.position.x, 0f) && Mathf.Approximately(c.position.y, 0f));
                 Assert.That(idleChild.motion?.name, Is.EqualTo(idleTargetByStance[stance]),
                     $"VR {stance} idle should remain the built-in {idleTargetByStance[stance]} clip");
             }

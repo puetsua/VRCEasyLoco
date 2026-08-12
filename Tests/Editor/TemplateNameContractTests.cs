@@ -37,17 +37,19 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         }
 
         [Test]
-        public void TheVrBranchPlaysTheSameIdleClips()
+        public void TheVrBranchPlaysTheBuiltInIdleClips()
         {
             // Not replaced - VR keeps the built-in poses - and the branch now carries its own
-            // locomotion trees so desktop idle-pose overrides do not fight IK. The trees still
-            // embed the same idle clip names, so a drift here is still worth knowing about.
+            // locomotion trees so desktop idle-pose overrides do not fight IK. The trees embed
+            // the VR idle set: standing and prone share the desktop built-ins, while crouch uses
+            // the dedicated squatting clip (a tracked crouch is a squat). A drift here means
+            // someone swapped in a clip the build neither replaces nor expects.
             var played = MotionNames(LocomotionTemplate.Branch(EasyLocoConst.VrLocomotionStateMachine));
 
             Assert.That(played, Is.SupersetOf(new[]
             {
                 EasyLocoConst.StandIdleTarget,
-                EasyLocoConst.CrouchIdleTarget,
+                EasyLocoConst.VrCrouchIdleTarget,
                 EasyLocoConst.ProneIdleTarget,
             }));
         }

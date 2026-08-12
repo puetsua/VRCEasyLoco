@@ -143,6 +143,10 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string StandIdleTarget = "IdleStandDefault";
         public const string CrouchIdleTarget = "IdleCrouchDefault";
         public const string ProneIdleTarget = "IdleProneDefault";
+        // The VR crouch tree embeds the dedicated squatting clip instead of the desktop crouch
+        // pose - a tracked crouch is a squat. The builder never replaces VR clips, but the
+        // template contract tests pin this name so a drift shows up in the Test Runner.
+        public const string VrCrouchIdleTarget = "IdleCrouchSquatting";
 
         // Built-in idle clips used to prefill a freshly added component.
         public const string StandDefaultClip = IdleAnimationsFolder + "/IdleStandDefault.anim";

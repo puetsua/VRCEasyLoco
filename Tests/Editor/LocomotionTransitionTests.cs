@@ -10,8 +10,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
     /// was extracted into its own controller: the Prone &lt;-&gt; Crouching transitions were re-created
     /// with the comparison direction swapped, so crouching snapped into the prone pose (and got
     /// stuck there) whenever the legs were animator-driven - i.e. in 3-point/desktop, while FBT
-    /// masked it. This pins the four Upright transitions to the SDK default directions so a
-    /// hand-recreated transition can never silently invert again.
+    /// masked it. This pins the four Upright transitions per branch to their expected directions
+    /// and thresholds so a hand-recreated transition can never silently invert or drift again.
     ///
     /// Every case runs over both VRMode branches. They are separate copies of the same stance
     /// machine, so a transition can be inverted in one and not the other - and a VR-only inversion
@@ -19,12 +19,17 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
     /// </summary>
     public class LocomotionTransitionTests
     {
-        // SDK default locomotion uses these exact thresholds, so the template must match: standing
-        // is Upright ~1, crouching ~0.5, prone ~0.1, and the boundaries sit at 0.41 / 0.43 / 0.68 / 0.7.
-        private const float StandCrouchThreshold = 0.68f;
-        private const float CrouchStandThreshold = 0.7f;
-        private const float CrouchProneThreshold = 0.41f;
-        private const float ProneCrouchThreshold = 0.43f;
+        // The desktop branch matches the SDK default locomotion thresholds: standing is Upright
+        // ~1, crouching ~0.5, prone ~0.1, and the boundaries sit at 0.41 / 0.43 / 0.68 / 0.7. The
+        // VR branch is deliberately tuned for tracked stance - wider stand-up hysteresis
+        // (0.63 / 0.8) so IK jitter around the boundary does not bounce between stances, and the
+        // crouch/prone boundaries moved to 0.47 / 0.5 - so each branch pins its own values.
+        private static BranchThresholds Thresholds(string branch)
+        {
+            return branch == EasyLocoConst.VrLocomotionStateMachine
+                ? new BranchThresholds(0.63f, 0.8f, 0.47f, 0.5f)
+                : new BranchThresholds(0.68f, 0.7f, 0.41f, 0.43f);
+        }
 
         [Test]
         public void StandingDropsToCrouchingBelowZeroPointSixEight(
@@ -33,8 +38,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var t = UprightTransition(branch, "Standing");
 
             Assert.That(t.Mode, Is.EqualTo(AnimatorConditionMode.Less),
-                "Standing -> Crouching must be Upright < 0.68, not greater-than");
-            Assert.That(t.Threshold, Is.EqualTo(StandCrouchThreshold).Within(1e-4f));
+                "Standing -> Crouching must be Upright dropping below the threshold, not greater-than");
+            Assert.That(t.Threshold, Is.EqualTo(Thresholds(branch).StandCrouch).Within(1e-4f));
             Assert.That(t.Destination, Is.EqualTo("Crouching"));
         }
 
@@ -44,7 +49,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         {
             var t = UprightTransition(branch, "Crouching", AnimatorConditionMode.Greater);
 
-            Assert.That(t.Threshold, Is.EqualTo(CrouchStandThreshold).Within(1e-4f));
+            Assert.That(t.Threshold, Is.EqualTo(Thresholds(branch).CrouchStand).Within(1e-4f));
             Assert.That(t.Destination, Is.EqualTo("Standing"));
         }
 
@@ -54,7 +59,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         {
             var t = UprightTransition(branch, "Crouching", AnimatorConditionMode.Less);
 
-            Assert.That(t.Threshold, Is.EqualTo(CrouchProneThreshold).Within(1e-4f),
+            Assert.That(t.Threshold, Is.EqualTo(Thresholds(branch).CrouchProne).Within(1e-4f),
                 "Crouching -> Prone must trigger while Upright is still falling, not while it climbs");
             Assert.That(t.Destination, Is.EqualTo("Prone"));
         }
@@ -66,8 +71,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var t = UprightTransition(branch, "Prone");
 
             Assert.That(t.Mode, Is.EqualTo(AnimatorConditionMode.Greater),
-                "Prone -> Crouching must be Upright > 0.43, not less-than");
-            Assert.That(t.Threshold, Is.EqualTo(ProneCrouchThreshold).Within(1e-4f));
+                "Prone -> Crouching must be Upright climbing above the threshold, not less-than");
+            Assert.That(t.Threshold, Is.EqualTo(Thresholds(branch).ProneCrouch).Within(1e-4f));
             Assert.That(t.Destination, Is.EqualTo("Crouching"));
         }
 
@@ -84,6 +89,22 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 var upright = UprightTransitions(states[name]).ToList();
                 Assert.That(upright.Count, Is.EqualTo(name == "Crouching" ? 2 : 1),
                     $"{branch}/{name} should carry only its SDK stance transition(s) on Upright");
+            }
+        }
+
+        private readonly struct BranchThresholds
+        {
+            public readonly float StandCrouch; // Standing -> Crouching (Upright below this)
+            public readonly float CrouchStand; // Crouching -> Standing (Upright above this)
+            public readonly float CrouchProne; // Crouching -> Prone (Upright below this)
+            public readonly float ProneCrouch; // Prone -> Crouching (Upright above this)
+
+            public BranchThresholds(float standCrouch, float crouchStand, float crouchProne, float proneCrouch)
+            {
+                StandCrouch = standCrouch;
+                CrouchStand = crouchStand;
+                CrouchProne = crouchProne;
+                ProneCrouch = proneCrouch;
             }
         }
 
