@@ -1057,10 +1057,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
                 else if (motion is BlendTree childTree)
                 {
-                    if (childTree.name == null || !childTree.name.EndsWith("5m"))
-                    {
-                        OffsetBlendTreeLeaves(childTree, outputFolder);
-                    }
+                    OffsetBlendTreeLeaves(childTree, outputFolder);
                 }
             }
 
