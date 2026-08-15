@@ -9,10 +9,10 @@ AnimatorTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   - m_ConditionMode: 4
     m_ConditionEvent: Upright
@@ -62,7 +62,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -87,7 +87,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -112,7 +112,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 703281496817337454}
@@ -137,13 +137,13 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 4
-    m_ConditionEvent: EasyLocoFacingUp
+    m_ConditionEvent: EL/FacingUp
     m_EventTreshold: 0.01
   - m_ConditionMode: 3
-    m_ConditionEvent: EasyLocoFacingDown
+    m_ConditionEvent: EL/FacingDown
     m_EventTreshold: 0.01
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoHeadDown
+    m_ConditionEvent: EL/HeadDown
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -5363641403072484067}
@@ -249,7 +249,7 @@ AnimatorTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: -6700540921718533148}
   m_DstState: {fileID: 0}
@@ -291,7 +291,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -316,7 +316,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 703281496817337454}
@@ -341,7 +341,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -425,7 +425,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -475,7 +475,7 @@ AnimatorTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: -148381027199580975}
   m_DstState: {fileID: 0}
@@ -492,10 +492,10 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   - m_ConditionMode: 4
     m_ConditionEvent: Upright
@@ -537,13 +537,13 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 4
-    m_ConditionEvent: EasyLocoFacingUp
+    m_ConditionEvent: EL/FacingUp
     m_EventTreshold: 0.01
   - m_ConditionMode: 3
-    m_ConditionEvent: EasyLocoFacingDown
+    m_ConditionEvent: EL/FacingDown
     m_EventTreshold: 0.01
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoHeadDown
+    m_ConditionEvent: EL/HeadDown
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -530069085276668400}
@@ -568,7 +568,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -742,49 +742,49 @@ AnimatorController:
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoSleepMode
+  - m_Name: EL/SleepMode
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoFacingLeft
+  - m_Name: EL/FacingLeft
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoFacingRight
+  - m_Name: EL/FacingRight
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoFacingDown
+  - m_Name: EL/FacingDown
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoFacingUp
+  - m_Name: EL/FacingUp
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoFeetLock
+  - m_Name: EL/FeetLock
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoHeadUp
+  - m_Name: EL/HeadUp
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
     m_Controller: {fileID: 9100000}
-  - m_Name: EasyLocoHeadDown
+  - m_Name: EL/HeadDown
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
@@ -852,7 +852,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: -148381027199580975}
   m_DstState: {fileID: 0}
@@ -935,13 +935,13 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 3
-    m_ConditionEvent: EasyLocoFacingUp
+    m_ConditionEvent: EL/FacingUp
     m_EventTreshold: 0.01
   - m_ConditionMode: 4
-    m_ConditionEvent: EasyLocoFacingDown
+    m_ConditionEvent: EL/FacingDown
     m_EventTreshold: 0.01
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoHeadUp
+    m_ConditionEvent: EL/HeadUp
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -3939273461075513937}
@@ -966,10 +966,10 @@ AnimatorTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoFeetLock
+    m_ConditionEvent: EL/FeetLock
     m_EventTreshold: 0
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   - m_ConditionMode: 4
     m_ConditionEvent: Upright
@@ -1067,7 +1067,7 @@ AnimatorTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 1102577115747224770}
@@ -1084,13 +1084,13 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 3
-    m_ConditionEvent: EasyLocoFacingUp
+    m_ConditionEvent: EL/FacingUp
     m_EventTreshold: 0.01
   - m_ConditionMode: 4
-    m_ConditionEvent: EasyLocoFacingDown
+    m_ConditionEvent: EL/FacingDown
     m_EventTreshold: 0.01
   - m_ConditionMode: 1
-    m_ConditionEvent: EasyLocoHeadUp
+    m_ConditionEvent: EL/HeadUp
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -8853484170072085990}
@@ -1115,7 +1115,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -1227,10 +1227,10 @@ AnimatorTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 4
-    m_ConditionEvent: EasyLocoFacingUp
+    m_ConditionEvent: EL/FacingUp
     m_EventTreshold: 0.01
   - m_ConditionMode: 3
-    m_ConditionEvent: EasyLocoFacingDown
+    m_ConditionEvent: EL/FacingDown
     m_EventTreshold: 0.01
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -530069085276668400}
@@ -1311,10 +1311,10 @@ AnimatorTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 4
-    m_ConditionEvent: EasyLocoFacingUp
+    m_ConditionEvent: EL/FacingUp
     m_EventTreshold: 0.01
   - m_ConditionMode: 3
-    m_ConditionEvent: EasyLocoFacingDown
+    m_ConditionEvent: EL/FacingDown
     m_EventTreshold: 0.01
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -5363641403072484067}
@@ -1356,7 +1356,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 2
-    m_ConditionEvent: EasyLocoSleepMode
+    m_ConditionEvent: EL/SleepMode
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 0}
@@ -1426,7 +1426,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   parameters:
   - type: 0
-    name: EasyLocoFeetLock
+    name: EL/FeetLock
     source: 
     value: 0
     valueMin: 0

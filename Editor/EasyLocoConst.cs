@@ -99,7 +99,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // Drives the Sleeping state inside the sleep controller's Prone sub-state machine. Set from
         // the Sleep Loco toggle in the Sleep sub-menu; the state also releases on Upright, so
         // standing up leaves sleep even while this is still true.
-        public const string SleepModeParam = "EasyLocoSleepMode";
+        public const string SleepModeParam = "EL/SleepMode";
 
         // Drives the FeetLock layer in the sleep controller, locking both feet to the animated pose
         // (VRC tracking control). Set from the Feet Lock toggle in the Sleep sub-menu; it only
@@ -107,13 +107,13 @@ namespace Puetsua.VRCEasyLoco.Editor
         // layer releases when sleep ends, when the toggle is cleared, or when Upright passes 0.43 -
         // and the release path's parameter driver clears this back to false, so the toggle never
         // sticks once you are upright or awake.
-        public const string FeetLockParam = "EasyLocoFeetLock";
+        public const string FeetLockParam = "EL/FeetLock";
 
         // Idle-pose selector parameters (one Float per stance, carrying 0..1 - see PoseValue in the
         // builder). Toggle menu items and the nested idle blend trees both reference these by name.
-        public const string IdleStandParam = "EasyLocoIdleStand";
-        public const string IdleCrouchParam = "EasyLocoIdleCrouch";
-        public const string IdleProneParam = "EasyLocoIdleProne";
+        public const string IdleStandParam = "EL/IdleStand";
+        public const string IdleCrouchParam = "EL/IdleCrouch";
+        public const string IdleProneParam = "EL/IdleProne";
 
         // The base template branches locomotion on VRMode: one sub-state machine per mode, each
         // carrying its own Standing/Crouching/Prone states over the same Default* blend trees.
@@ -156,7 +156,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         //
         // The on-side pose sits in every tree twice - once plain, once with the child's Mirror flag
         // set - so one pose covers both sides. SleepSide lies on the left (right side up, so it
-        // plays at EasyLocoFacingRight) and the clips are humanoid, so Unity mirrors it exactly.
+        // plays at EL/FacingRight) and the clips are humanoid, so Unity mirrors it exactly.
         //
         // Each tree holds its own on-side placeholder rather than sharing one clip, because the
         // slots differ in Root Transform Rotation: the free branch sits halfway between its facing

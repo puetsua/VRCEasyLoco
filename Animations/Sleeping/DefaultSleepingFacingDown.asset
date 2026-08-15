@@ -64,8 +64,8 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: VelocityX
     m_Mirror: 0
-  m_BlendParameter: EasyLocoFacingLeft
-  m_BlendParameterY: EasyLocoFacingRight
+  m_BlendParameter: EL/FacingLeft
+  m_BlendParameterY: EL/FacingRight
   m_MinThreshold: 0
   m_MaxThreshold: 6
   m_UseAutomaticThresholds: 0

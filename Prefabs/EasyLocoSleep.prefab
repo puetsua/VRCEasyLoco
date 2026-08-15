@@ -86,12 +86,12 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: 1
   collisionTags:
-  - EasyLocoSleepFacing
+  - EL/SleepFacing
   allowSelf: 1
   allowOthers: 0
   useFaceProximity: 0
   receiverType: 2
-  parameter: EasyLocoFacingRight
+  parameter: EL/FacingRight
   minVelocity: 0.05
 --- !u!1 &592886354649998905
 GameObject:
@@ -147,12 +147,12 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: 1
   collisionTags:
-  - EasyLocoSleepFacing
+  - EL/SleepFacing
   allowSelf: 1
   allowOthers: 0
   useFaceProximity: 0
   receiverType: 2
-  parameter: EasyLocoFacingUp
+  parameter: EL/FacingUp
   minVelocity: 0.05
 --- !u!1 &2153373641827576656
 GameObject:
@@ -208,7 +208,7 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: -1
   collisionTags:
-  - EasyLocoSleepHeadUpDown
+  - EL/SleepHeadUpDown
 --- !u!1 &2344676641902242385
 GameObject:
   m_ObjectHideFlags: 0
@@ -263,7 +263,7 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: 1
   collisionTags:
-  - EasyLocoSleepFacing
+  - EL/SleepFacing
 --- !u!1 &2494841043470567002
 GameObject:
   m_ObjectHideFlags: 0
@@ -383,7 +383,7 @@ MonoBehaviour:
     icon: {fileID: 0}
     type: 102
     parameter:
-      name: EasyLocoFeetLock
+      name: EL/FeetLock
     value: 1
     style: 0
     subMenu: {fileID: 0}
@@ -449,7 +449,7 @@ MonoBehaviour:
     icon: {fileID: 0}
     type: 102
     parameter:
-      name: EasyLocoSleepMode
+      name: EL/SleepMode
     value: 1
     style: 0
     subMenu: {fileID: 0}
@@ -516,12 +516,12 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: -1
   collisionTags:
-  - EasyLocoSleepHeadUpDown
+  - EL/SleepHeadUpDown
   allowSelf: 1
   allowOthers: 1
   useFaceProximity: 0
   receiverType: 0
-  parameter: EasyLocoHeadUp
+  parameter: EL/HeadUp
   minVelocity: 0.05
 --- !u!1 &5904357711325988295
 GameObject:
@@ -629,12 +629,12 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: 1
   collisionTags:
-  - EasyLocoSleepFacing
+  - EL/SleepFacing
   allowSelf: 1
   allowOthers: 0
   useFaceProximity: 0
   receiverType: 2
-  parameter: EasyLocoFacingLeft
+  parameter: EL/FacingLeft
   minVelocity: 0.05
 --- !u!1 &6582773348967686158
 GameObject:
@@ -690,12 +690,12 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: 1
   collisionTags:
-  - EasyLocoSleepFacing
+  - EL/SleepFacing
   allowSelf: 1
   allowOthers: 0
   useFaceProximity: 0
   receiverType: 2
-  parameter: EasyLocoFacingDown
+  parameter: EL/FacingDown
   minVelocity: 0.05
 --- !u!1 &7225134400759087305
 GameObject:
@@ -787,12 +787,12 @@ MonoBehaviour:
   localOnly: 0
   contentTypes: -1
   collisionTags:
-  - EasyLocoSleepHeadUpDown
+  - EL/SleepHeadUpDown
   allowSelf: 1
   allowOthers: 1
   useFaceProximity: 0
   receiverType: 0
-  parameter: EasyLocoHeadDown
+  parameter: EL/HeadDown
   minVelocity: 0.05
 --- !u!1 &7947820374941173301
 GameObject:
@@ -992,7 +992,7 @@ MonoBehaviour:
     UpdatedAtVersion: 
     MinimumVersion: 
   parameters:
-  - nameOrPrefix: EasyLocoFacingUp
+  - nameOrPrefix: EL/FacingUp
     remapTo: 
     internalParameter: 0
     isPrefix: 0
@@ -1002,7 +1002,7 @@ MonoBehaviour:
     saved: 0
     hasExplicitDefaultValue: 0
     m_overrideAnimatorDefaults: 0
-  - nameOrPrefix: EasyLocoFacingDown
+  - nameOrPrefix: EL/FacingDown
     remapTo: 
     internalParameter: 0
     isPrefix: 0
@@ -1012,7 +1012,7 @@ MonoBehaviour:
     saved: 0
     hasExplicitDefaultValue: 0
     m_overrideAnimatorDefaults: 0
-  - nameOrPrefix: EasyLocoFacingLeft
+  - nameOrPrefix: EL/FacingLeft
     remapTo: 
     internalParameter: 0
     isPrefix: 0
@@ -1022,7 +1022,7 @@ MonoBehaviour:
     saved: 0
     hasExplicitDefaultValue: 0
     m_overrideAnimatorDefaults: 0
-  - nameOrPrefix: EasyLocoFacingRight
+  - nameOrPrefix: EL/FacingRight
     remapTo: 
     internalParameter: 0
     isPrefix: 0
@@ -1032,7 +1032,7 @@ MonoBehaviour:
     saved: 0
     hasExplicitDefaultValue: 0
     m_overrideAnimatorDefaults: 0
-  - nameOrPrefix: EasyLocoSleepMode
+  - nameOrPrefix: EL/SleepMode
     remapTo: 
     internalParameter: 0
     isPrefix: 0
@@ -1042,7 +1042,7 @@ MonoBehaviour:
     saved: 0
     hasExplicitDefaultValue: 0
     m_overrideAnimatorDefaults: 0
-  - nameOrPrefix: EasyLocoFeetLock
+  - nameOrPrefix: EL/FeetLock
     remapTo: 
     internalParameter: 0
     isPrefix: 0
