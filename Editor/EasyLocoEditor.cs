@@ -79,7 +79,16 @@ namespace Puetsua.VRCEasyLoco.Editor
             showSleepHelp = LoadHelp(SleepFoldoutKey);
             showAfkHelp = LoadHelp(AfkFoldoutKey);
 
-            InitializeDefaults((EasyLoco)target);
+            // After a domain reload Unity can reopen this inspector against a dummy / missing-script
+            // object. A hard cast throws InvalidCastException and kills the inspector; skip until
+            // a real EasyLoco is selected.
+            var easyLoco = target as EasyLoco;
+            if (easyLoco == null)
+            {
+                return;
+            }
+
+            InitializeDefaults(easyLoco);
 
             standPoses = serializedObject.FindProperty(nameof(EasyLoco.standPoses));
             crouchPoses = serializedObject.FindProperty(nameof(EasyLoco.crouchPoses));
@@ -104,7 +113,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             DrawVersion();
             DrawLanguage();
 
-            var easyLoco = (EasyLoco)target;
+            var easyLoco = target as EasyLoco;
+            if (easyLoco == null)
+            {
+                return;
+            }
 
             // Build installs onto the descriptor sharing this GameObject; with none there is nothing
             // to install onto, so explain the disabled button rather than leaving it dead.
@@ -196,8 +209,14 @@ namespace Puetsua.VRCEasyLoco.Editor
             // that undoing only rolls back the names, not the language itself, so reselecting the
             // component re-applies them - the undo is a within-session escape hatch, not a way to
             // keep the old names under the new language.
-            Undo.RecordObject(target, "Change EasyLoco Language");
-            InitializeDefaults((EasyLoco)target);
+            var easyLoco = target as EasyLoco;
+            if (easyLoco == null)
+            {
+                return;
+            }
+
+            Undo.RecordObject(easyLoco, "Change EasyLoco Language");
+            InitializeDefaults(easyLoco);
             serializedObject.Update();
         }
 
