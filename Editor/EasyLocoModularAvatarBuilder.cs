@@ -930,7 +930,8 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 var needsReplacement = SubtreeContainsReplacement(blendTree, replacements);
                 var needsHeightOffset = applyHeightOffset && SubtreeContainsHeightOffsetTree(blendTree);
-                if (!needsReplacement && !needsHeightOffset)
+                var isSleepTree = applyHeightOffset && IsSleepBlendTree(blendTree);
+                if (!needsReplacement && !needsHeightOffset && !isSleepTree)
                 {
                     return blendTree;
                 }
@@ -954,9 +955,9 @@ namespace Puetsua.VRCEasyLoco.Editor
                 // Blend trees embedded inside the copied controller are owned by it and safe to edit.
                 ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath, clones, applyHeightOffset);
 
-                if (applyHeightOffset && blendTree.name != null && blendTree.name.EndsWith("5m"))
+                if (isSleepTree)
                 {
-                    OffsetBlendTreeLeaves(blendTree, outputFolder);
+                    DuplicateSleepTreeLeaves(blendTree, outputFolder);
                 }
 
                 return blendTree;
@@ -1030,13 +1031,21 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        // After normal replacement, applies +5 to RootT.y on every leaf AnimationClip inside a
-        // blend tree whose name ends with 5m. The offset is applied to a generated copy, not the
-        // shared package clip.
-        private static void OffsetBlendTreeLeaves(BlendTree blendTree, string outputFolder)
+        private static bool IsSleepBlendTree(BlendTree blendTree)
+        {
+            return blendTree.name != null && blendTree.name.StartsWith("DefaultSleeping");
+        }
+
+        // For the sleep build only. Duplicates every leaf AnimationClip inside a sleep blend tree
+        // so the generated controller does not depend on shared package assets. Non-5m trees get a
+        // plain copy; 5m trees get a copy with +5 added to RootT.y. User overrides have already
+        // been applied by the time this runs, so duplicated clips derive from the EasyLoco
+        // configuration.
+        private static void DuplicateSleepTreeLeaves(BlendTree blendTree, string outputFolder)
         {
             var children = blendTree.children;
             var changed = false;
+            var is5m = blendTree.name != null && blendTree.name.EndsWith("5m");
 
             for (var i = 0; i < children.Length; i++)
             {
@@ -1048,16 +1057,18 @@ namespace Puetsua.VRCEasyLoco.Editor
 
                 if (motion is AnimationClip clip)
                 {
-                    var offset = GetOrCreateHeightOffsetClip(clip, outputFolder);
-                    if (offset != clip)
+                    var duplicate = is5m
+                        ? GetOrCreateHeightOffsetClip(clip, outputFolder)
+                        : GetOrCreateSleepDuplicateClip(clip, outputFolder);
+                    if (duplicate != clip)
                     {
-                        children[i].motion = offset;
+                        children[i].motion = duplicate;
                         changed = true;
                     }
                 }
                 else if (motion is BlendTree childTree)
                 {
-                    OffsetBlendTreeLeaves(childTree, outputFolder);
+                    DuplicateSleepTreeLeaves(childTree, outputFolder);
                 }
             }
 
@@ -1070,6 +1081,29 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         private const float HeightOffsetMeters = 5f;
 
+        // Creates a plain duplicate of an AnimationClip in the generated sleep folder. Used for
+        // non-5m sleep trees so the avatar owns its own copy of every sleep animation.
+        private static AnimationClip GetOrCreateSleepDuplicateClip(AnimationClip source, string outputFolder)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var outputPath = outputFolder + "/EL_Sleep_" + SanitizeFileName(source.name) + ".anim";
+            var existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(outputPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var duplicate = Object.Instantiate(source);
+            duplicate.name = source.name;
+            AssetDatabase.CreateAsset(duplicate, outputPath);
+            EditorUtility.SetDirty(duplicate);
+            return duplicate;
+        }
+
         // Creates a copy of the given AnimationClip with +5 added to its humanoid RootT.y curve.
         // If the clip has no RootT.y curve, creates one with a constant value of 5. Generated clips
         // are deterministic per source and output folder so rebuilding overwrites instead of piling
@@ -1081,7 +1115,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 return null;
             }
 
-            var outputPath = outputFolder + "/EL_HeightOffset_" + SanitizeFileName(source.name) + ".anim";
+            var outputPath = outputFolder + "/EL_Sleep_" + SanitizeFileName(source.name) + "5m.anim";
             var existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(outputPath);
             if (existing != null)
             {
@@ -1186,9 +1220,9 @@ namespace Puetsua.VRCEasyLoco.Editor
             clone.children = children;
             collected.Add(clone);
 
-            if (applyHeightOffset && clone.name != null && clone.name.EndsWith("5m"))
+            if (applyHeightOffset && IsSleepBlendTree(clone))
             {
-                OffsetBlendTreeLeaves(clone, outputFolder);
+                DuplicateSleepTreeLeaves(clone, outputFolder);
             }
 
             return clone;
