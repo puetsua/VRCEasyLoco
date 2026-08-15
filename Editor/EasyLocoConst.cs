@@ -110,14 +110,35 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string FeetLockParam = "EL/FeetLock";
 
         // The height-adjustment feature, driven by an MA Parameters component on the sleep prefab.
-        // EnableHeight is the on/off toggle that switches the sleep pose to its 5m variant; Height
-        // is the radial's 0..1 value that blends between the normal and 5m sleep trees on the
-        // controller (the +5 on RootT.y is baked into the 5m clips by the build, not added live).
-        // Only the sleep build reaches them - the 5m blend trees blend on Height, the menu items
-        // drive and read them - so the names here are the contract with the prefab and template
-        // rather than a parameter the non-sleep build adds.
+        // EnableHeight is the on/off bool that allows the 5m blend; Height is the radial's 0..1
+        // value. A bool cannot drive a 1D blend tree, so each sleeping pose has a sibling Height
+        // state. That state is two nested 1D trees: Height blends the normal pose into an
+        // EyeHeightNorm tree that blends the same pose into its 5m variant. Lift is then
+        // Height × EyeHeightNorm (linear on the radial; EyeHeightNorm is the 5 m ceiling). A 2D
+        // Cartesian tree is not linear on either axis. The +5 on RootT.y is baked into the 5m
+        // clips by the build, not added live. Height defaults to 0 so a fresh install sits on the
+        // normal pose even if EnableHeight is already on.
         public const string HeightParam = "EL/Height";
         public const string EnableHeightParam = "EL/EnableHeight";
+        public const string HeightStateSuffix = " Height";
+
+        // VRChat's built-in eye height in metres. The Action Menu scale dial runs 0.2..5.0; worlds
+        // can push it outside that. The EyeHeightNorm layer writes [[EyeHeightNormParam]] every
+        // frame from a 1D blend on this (0 m → 0, 5 m → 1) so Height lift can use a 0..1 axis
+        // without a Parameter Driver (those only fire on state enter).
+        public const string EyeHeightAsMetersParam = "EyeHeightAsMeters";
+        public const string EyeHeightNormParam = "EL/EyeHeightNorm";
+        public const float EyeHeightMetersMin = 0f;
+        public const float EyeHeightMetersMax = 5f;
+        public const float EyeHeightNormMin = 0f;
+        public const float EyeHeightNormMax = 1f;
+        // Typical ~1.25 m avatar (metres / 5) until the Normalize clip writes the live value.
+        public const float EyeHeightNormDefault = 0.25f;
+
+        public const string EyeHeightNormLayer = "EyeHeightNorm";
+        public const string EyeHeightNormState = "Normalize";
+        public const string EyeHeightNormZeroClip = SleepAnimationsFolder + "/EyeHeightNorm0.anim";
+        public const string EyeHeightNormOneClip = SleepAnimationsFolder + "/EyeHeightNorm1.anim";
 
         // Idle-pose selector parameters (one Float per stance, carrying 0..1 - see PoseValue in the
         // builder). Toggle menu items and the nested idle blend trees both reference these by name.
@@ -204,6 +225,27 @@ namespace Puetsua.VRCEasyLoco.Editor
         public static string SleepSidePlaceholderClip(string target)
         {
             return SleepAnimationsFolder + "/" + target + ".anim";
+        }
+
+        // Generated sleep-clip filenames (and object names) are derived from these slot names, not
+        // from whatever the user named their override clip. A custom "MyNap.anim" in the Up slot
+        // still writes ELSleepUp.anim / ELSleepUp5m.anim so a rebuild overwrites instead of
+        // orphaning, and Unity's object-name-matches-filename warning stays quiet.
+        public const string GeneratedSleepClipPrefix = "EL";
+
+        public static readonly string[] SleepTargets =
+        {
+            SleepUpTarget,
+            SleepDownTarget,
+            SleepSideFacingUpTarget,
+            SleepSideFacingDownTarget,
+            SleepSideFacingUpFeetLockTarget,
+            SleepSideFacingDownFeetLockTarget,
+        };
+
+        public static string GeneratedSleepClipName(string slot, bool is5m)
+        {
+            return GeneratedSleepClipPrefix + slot + (is5m ? "5m" : string.Empty);
         }
 
         // AFK is branched by posture; each stance state is named "Afk <Stance> <Stage>". The builder

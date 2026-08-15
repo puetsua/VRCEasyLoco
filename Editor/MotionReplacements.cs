@@ -56,6 +56,26 @@ namespace Puetsua.VRCEasyLoco.Editor
         }
 
         /// <summary>
+        /// The slot key this motion was registered under, if any. Used to name generated sleep
+        /// clips after the EasyLoco slot (SleepUp) rather than the user's override clip name.
+        /// Does not count as a match - naming is not a template walk.
+        /// </summary>
+        public bool TryGetKey(Motion motion, out string key)
+        {
+            foreach (var entry in byName)
+            {
+                if (entry.Value == motion)
+                {
+                    key = entry.Key;
+                    return true;
+                }
+            }
+
+            key = null;
+            return false;
+        }
+
+        /// <summary>
         /// The keys no walk ever found, sorted so the build's error message reads the same twice.
         /// Empty is the expected answer - anything else means the template stopped carrying
         /// something this package names.

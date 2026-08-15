@@ -17,7 +17,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
     ///   * each source clip yields exactly one plain and one 5m duplicate,
     ///   * 5m trees get RootT.y + 5 and non-5m trees do not,
     ///   * a 5m tree nested anywhere under the root is still offset, and
-    ///   * duplicate names are never doubled (no ELSleepELSleep...).
+    ///   * duplicate names are never doubled (no ELELSleepUp...),
+    ///   * a user override is named from the EasyLoco slot, not the clip file.
     ///
     /// The tests exercise CloneBlendTree rather than CloneBlendTreeInMemory because duplication
     /// deliberately runs on the root clone the way the build calls it, with one per-build cache.
@@ -26,7 +27,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
     {
         private readonly List<Object> spawned = new List<Object>();
         private string _folder;
-        private Dictionary<(AnimationClip, bool), AnimationClip> _clipCache;
+        private Dictionary<(string, bool), AnimationClip> _clipCache;
 
         [SetUp]
         public void SetUp()
@@ -35,7 +36,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             AssetDatabase.CreateFolder("Assets", System.IO.Path.GetFileName(_folder));
             // One cache per test, mirroring the build's single per-build cache shared by every
             // CloneBlendTree call. A test that wants a fresh build resets this.
-            _clipCache = new Dictionary<(AnimationClip, bool), AnimationClip>();
+            _clipCache = new Dictionary<(string, bool), AnimationClip>();
         }
 
         [TearDown]
@@ -67,7 +68,9 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             Assert.That(clone, Is.Not.SameAs(source), "the shared package tree was not cloned");
             var duplicated = (AnimationClip)clone.children[0].motion;
             Assert.That(duplicated, Is.Not.SameAs(leaf), "the avatar still points at the package clip");
-            Assert.That(AssetDatabase.GetAssetPath(duplicated), Is.EqualTo(_folder + "/ELSleepSleepUp.anim"));
+            Assert.That(AssetDatabase.GetAssetPath(duplicated), Is.EqualTo(_folder + "/ELSleepUp.anim"));
+            Assert.That(duplicated.name, Is.EqualTo("ELSleepUp"),
+                "the clip object name must match the file or Unity warns on import");
             Assert.That(RootY(duplicated), Is.EqualTo(0.5f).Within(0.0001f),
                 "a non-5m tree must duplicate the pose, not shift it");
         }
@@ -76,7 +79,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         public void EachSourceYieldsOnePlainAndOne5mClip()
         {
             // The same source clip sits in both a plain tree and its height variant. One build must
-            // produce exactly one ELSleep<clip>.anim and one ELSleep<clip>5m.anim - not one per tree
+            // produce exactly one ELSleepUp.anim and one ELSleepUp5m.anim - not one per tree
             // it appears in.
             var leaf = Clip("SleepUp", 0.5f);
             var source = Tree("SleepRoot",
@@ -85,10 +88,12 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
             CloneForSleep(source, new Dictionary<string, Motion>());
 
-            Assert.That(FindClip("ELSleepSleepUp.anim"), Is.Not.Null,
+            Assert.That(FindClip("ELSleepUp.anim"), Is.Not.Null,
                 "the plain duplicate should exist");
-            Assert.That(FindClip("ELSleepSleepUp5m.anim"), Is.Not.Null,
+            Assert.That(FindClip("ELSleepUp5m.anim"), Is.Not.Null,
                 "the height duplicate should exist");
+            Assert.That(FindClip("ELSleepUp.anim").name, Is.EqualTo("ELSleepUp"));
+            Assert.That(FindClip("ELSleepUp5m.anim").name, Is.EqualTo("ELSleepUp5m"));
         }
 
         [Test]
@@ -133,8 +138,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
             CloneForSleep(source, new Dictionary<string, Motion>());
 
-            Assert.That(FindClip("ELSleepSleepUp.anim"), Is.Not.Null);
-            Assert.That(FindClip("ELSleepELSleepSleepUp.anim"), Is.Null,
+            Assert.That(FindClip("ELSleepUp.anim"), Is.Not.Null);
+            Assert.That(FindClip("ELELSleepUp.anim"), Is.Null,
                 "duplication doubled the prefix - the clip was re-duplicated");
         }
 
@@ -150,7 +155,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
             Assert.That(clone.children[0].motion, Is.SameAs(leaf),
                 "a non-sleep tree should not have its leaf replaced");
-            Assert.That(FindClip("ELSleepJustAGait.anim"), Is.Null);
+            Assert.That(FindClip("ELJustAGait.anim"), Is.Null);
         }
 
         [Test]
@@ -174,7 +179,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var leafFeetLock = (AnimationClip)cloneFeetLock.children[0].motion;
             Assert.That(leafUp, Is.Not.Null, "the first clone's leaf was orphaned");
             Assert.That(leafFeetLock, Is.Not.Null, "the second clone's leaf did not resolve");
-            Assert.That(AssetDatabase.GetAssetPath(leafUp), Is.EqualTo(_folder + "/ELSleepSleepUp.anim"));
+            Assert.That(AssetDatabase.GetAssetPath(leafUp), Is.EqualTo(_folder + "/ELSleepUp.anim"));
             Assert.That(AssetDatabase.GetAssetPath(leafFeetLock), Is.EqualTo(AssetDatabase.GetAssetPath(leafUp)),
                 "two clones of one shared leaf must point at the same generated asset");
             Assert.That(RootY(leafUp), Is.EqualTo(0.5f).Within(0.0001f), "the shared leaf lost its pose");
@@ -197,7 +202,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
             // The source changed between builds; a fresh cache simulates the new build.
             SetRootY(leaf, 2.5f);
-            _clipCache = new Dictionary<(AnimationClip, bool), AnimationClip>();
+            _clipCache = new Dictionary<(string, bool), AnimationClip>();
             var secondClone = CloneForSleep(source, new Dictionary<string, Motion>());
             var secondLeaf = (AnimationClip)secondClone.children[0].motion;
 
@@ -205,6 +210,24 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 "the generated clip still carries the old pose");
             Assert.That(AssetDatabase.GetAssetPath(secondLeaf), Is.EqualTo(firstPath),
                 "the rebuild should overwrite the same asset, keeping its GUID");
+        }
+
+        [Test]
+        public void UserOverrideIsNamedFromTheEasyLocoSlotNotTheClipFile()
+        {
+            // A custom clip in the Up slot must still write ELSleepUp.anim - not ELMyNap.anim -
+            // so a rebuild overwrites and Unity's filename-matches-object-name warning stays quiet.
+            var usersClip = Clip("MyNap", 0.5f);
+            var source = Tree("DefaultSleepingFacingUp", Child(Clip("SleepUp", 0.5f)));
+            var replacements = new Dictionary<string, Motion> { { EasyLocoConst.SleepUpTarget, usersClip } };
+
+            var clone = CloneForSleep(source, replacements);
+
+            var generated = (AnimationClip)clone.children[0].motion;
+            Assert.That(AssetDatabase.GetAssetPath(generated), Is.EqualTo(_folder + "/ELSleepUp.anim"));
+            Assert.That(generated.name, Is.EqualTo("ELSleepUp"));
+            Assert.That(FindClip("ELMyNap.anim"), Is.Null);
+            Assert.That(RootY(generated), Is.EqualTo(0.5f).Within(0.0001f));
         }
 
         private BlendTree CloneForSleep(BlendTree source, IReadOnlyDictionary<string, Motion> replacements)

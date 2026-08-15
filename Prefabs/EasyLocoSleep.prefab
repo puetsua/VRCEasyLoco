@@ -1191,7 +1191,7 @@ MonoBehaviour:
     isPrefix: 0
     syncType: 2
     localOnly: 0
-    defaultValue: 0.25
+    defaultValue: 0
     saved: 0
     hasExplicitDefaultValue: 1
     m_overrideAnimatorDefaults: 0

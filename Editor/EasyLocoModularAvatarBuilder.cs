@@ -837,7 +837,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             controller.AddParameter(name, AnimatorControllerParameterType.Float);
         }
 
-        internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName, bool isSleepBuild = false, Dictionary<(AnimationClip source, bool is5m), AnimationClip> clipCache = null)
+        internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName, bool isSleepBuild = false, Dictionary<(string slot, bool is5m), AnimationClip> clipCache = null)
         {
             if (controller == null || replacements == null)
             {
@@ -857,7 +857,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             // One cache for the whole sleep build, shared across every CloneBlendTree: sibling trees
             // that reference the same leaf clip must resolve to the same ELSleep duplicate, or each
             // clone would write over the other's file and orphan it.
-            clipCache ??= new Dictionary<(AnimationClip source, bool is5m), AnimationClip>();
+            clipCache ??= new Dictionary<(string slot, bool is5m), AnimationClip>();
             foreach (var root in roots)
             {
                 ReplaceMotions(root, replacements, outputFolder, controllerPath, clones, clipCache, isSleepBuild);
@@ -942,7 +942,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // motion of several states, and cloning it per state would have each clone delete the asset
         // the previous state was pointed at, leaving that state with a missing motion. The clone
         // path is deterministic, so the cache is what keeps that safe.
-        private static void ReplaceMotions(AnimatorStateMachine stateMachine, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(AnimationClip source, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
+        private static void ReplaceMotions(AnimatorStateMachine stateMachine, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(string slot, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
         {
             foreach (var childState in stateMachine.states)
             {
@@ -961,7 +961,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        private static Motion ReplaceMotion(Motion motion, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(AnimationClip source, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
+        private static Motion ReplaceMotion(Motion motion, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(string slot, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
         {
             if (motion == null)
             {
@@ -1002,7 +1002,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             return replacements.TryGet(motion.name, out var replacement) ? replacement : motion;
         }
 
-        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(AnimationClip source, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
+        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(string slot, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
         {
             var children = blendTree.children;
             var changed = false;
@@ -1088,7 +1088,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // been applied by the time this runs, so duplicated clips derive from the EasyLoco
         // configuration. Uses a cache so the same source clip produces exactly one duplicate per
         // variant (plain / 5m) regardless of how many trees reference it.
-        private static void DuplicateSleepTreeLeaves(BlendTree blendTree, string outputFolder, Dictionary<(AnimationClip source, bool is5m), AnimationClip> cache)
+        private static void DuplicateSleepTreeLeaves(BlendTree blendTree, string outputFolder, Dictionary<(string slot, bool is5m), AnimationClip> cache, MotionReplacements replacements)
         {
             var children = blendTree.children;
             var changed = false;
@@ -1104,7 +1104,7 @@ namespace Puetsua.VRCEasyLoco.Editor
 
                 if (motion is AnimationClip clip)
                 {
-                    var duplicate = GetOrCreateSleepDuplicateClip(clip, is5m, outputFolder, cache);
+                    var duplicate = GetOrCreateSleepDuplicateClip(clip, is5m, outputFolder, cache, replacements);
                     if (duplicate != clip)
                     {
                         children[i].motion = duplicate;
@@ -1113,7 +1113,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
                 else if (motion is BlendTree childTree)
                 {
-                    DuplicateSleepTreeLeaves(childTree, outputFolder, cache);
+                    DuplicateSleepTreeLeaves(childTree, outputFolder, cache, replacements);
                 }
             }
 
@@ -1126,40 +1126,67 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         private const float HeightOffsetMeters = 5f;
 
-        // Returns the avatar's owned copy of a sleep clip, creating the ELSleep<name>[5m].anim
-        // asset the first time a source clip is seen and reusing that same asset on every later
-        // reference. Two things keep that safe:
+        // Returns the avatar's owned copy of a sleep clip, creating EL<Slot>[5m].anim the first
+        // time that EasyLoco slot is seen and reusing that same asset on every later reference.
+        // Named from the slot (SleepUp, SleepSideFacingUpFeetLock, ...) rather than the source
+        // clip, so a user's "MyNap.anim" in the Up slot still writes ELSleepUp.anim.
         //
-        //   * The cache is owned by the whole build (created in ReplaceMotions) and threaded through
-        //     every CloneBlendTree, so sibling sleep trees that share one leaf clip - e.g. FacingUp
-        //     and FacingUpFeetLock both pointing at the same on-side pose - resolve to the same
-        //     generated asset instead of each one writing over the other's file.
+        //   * The cache is owned by the whole build (created in ReplaceMotions) and keyed by slot,
+        //     so sibling trees that share one leaf resolve to the same generated asset.
         //   * A generated clip that already exists is overwritten in place rather than deleted and
-        //     recreated, so its GUID survives a rebuild and every tree that referenced it keeps
-        //     resolving. Delete-then-create gave the file a fresh GUID, orphaning the trees that
-        //     were cloned earlier in the same build.
-        //
-        // Overwriting in place also fixes the stale-clip hole: the existing asset is refreshed from
-        // the current source on every build, so changing a package default or the user's override
-        // and rebuilding overwrites it instead of pinning the old animation.
-        private static AnimationClip GetOrCreateSleepDuplicateClip(AnimationClip source, bool is5m, string outputFolder, Dictionary<(AnimationClip source, bool is5m), AnimationClip> cache)
+        //     recreated, so its GUID survives a rebuild.
+        private static AnimationClip GetOrCreateSleepDuplicateClip(AnimationClip source, bool is5m, string outputFolder, Dictionary<(string slot, bool is5m), AnimationClip> cache, MotionReplacements replacements)
         {
             if (source == null)
             {
                 return null;
             }
 
-            var key = (source, is5m);
+            var slot = SleepSlotName(source, replacements);
+            var key = (slot, is5m);
             if (cache.TryGetValue(key, out var cached))
             {
                 return cached;
             }
 
-            var suffix = is5m ? "5m" : string.Empty;
-            var outputPath = outputFolder + "/ELSleep" + SanitizeFileName(source.name) + suffix + ".anim";
+            var outputPath = outputFolder + "/" + EasyLocoConst.GeneratedSleepClipName(slot, is5m) + ".anim";
             var clip = GetOrCreateClipAssetInPlace(outputPath, source, is5m);
             cache[key] = clip;
             return clip;
+        }
+
+        // The EasyLoco sleep slot this clip belongs to. Built-in package clips and side-slot
+        // copies are already named SleepUp / SleepSideFacingUp / ...; a user override keeps its
+        // own name, so the replacement ledger is what maps that instance back to the slot.
+        internal static string SleepSlotName(AnimationClip clip, MotionReplacements replacements)
+        {
+            if (clip != null && replacements != null && replacements.TryGetKey(clip, out var key)
+                && IsSleepSlot(key))
+            {
+                return key;
+            }
+
+            if (clip != null && IsSleepSlot(clip.name))
+            {
+                return clip.name;
+            }
+
+            return clip == null || string.IsNullOrEmpty(clip.name)
+                ? "SleepUnknown"
+                : SanitizeFileName(clip.name);
+        }
+
+        private static bool IsSleepSlot(string name)
+        {
+            foreach (var slot in EasyLocoConst.SleepTargets)
+            {
+                if (name == slot)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // Creates the clip asset at outputPath if it is missing, otherwise reloads the one that is
@@ -1171,7 +1198,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             if (clip == null)
             {
                 clip = Object.Instantiate(source);
-                clip.name = source.name;
             }
             else
             {
@@ -1188,6 +1214,10 @@ namespace Puetsua.VRCEasyLoco.Editor
                 AssetDatabase.CreateAsset(clip, outputPath);
             }
 
+            // Name the object after the file (ELSleepUp / ELSleepUp5m), not the source clip. Unity
+            // warns when the main object name does not match the filename, and a user's override
+            // must not leak its own name into the generated folder.
+            clip.name = Path.GetFileNameWithoutExtension(outputPath);
             EditorUtility.SetDirty(clip);
             return clip;
         }
@@ -1232,15 +1262,15 @@ namespace Puetsua.VRCEasyLoco.Editor
         // and is shared across every CloneBlendTree in the build, so a source clip that appears in
         // several sleep trees is duplicated exactly once per variant - and a leaf that is already a
         // generated asset is overwritten in place (keeping its GUID) rather than rewritten.
-        internal static BlendTree CloneBlendTree(BlendTree source, MotionReplacements replacements, string outputFolder, Dictionary<(AnimationClip source, bool is5m), AnimationClip> clipCache = null, bool isSleepBuild = false)
+        internal static BlendTree CloneBlendTree(BlendTree source, MotionReplacements replacements, string outputFolder, Dictionary<(string slot, bool is5m), AnimationClip> clipCache = null, bool isSleepBuild = false)
         {
             var nested = new List<BlendTree>();
-            clipCache ??= new Dictionary<(AnimationClip source, bool is5m), AnimationClip>();
+            clipCache ??= new Dictionary<(string slot, bool is5m), AnimationClip>();
             var root = CloneBlendTreeInMemory(source, replacements, nested);
 
             if (isSleepBuild && IsOrContainsSleepBlendTree(root))
             {
-                DuplicateSleepTreeLeaves(root, outputFolder, clipCache);
+                DuplicateSleepTreeLeaves(root, outputFolder, clipCache, replacements);
             }
 
             // Deterministic name so rebuilding overwrites the previous clone instead of piling up copies.
