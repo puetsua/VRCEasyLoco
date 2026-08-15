@@ -362,14 +362,16 @@ namespace Puetsua.VRCEasyLoco.Editor
                 var installer = host.GetComponent<ModularAvatarMenuInstaller>();
                 if (installer != null)
                 {
-                    // Localised Sleep menu + entry, so "Sleep", "Sleep Loco" and "Feet Lock" follow the
-                    // active language at build time. Nested under the localised EasyLocoMain when the
-                    // main prefab is present, otherwise appended at the root.
-                    var sleepMenu = GetOrCreateLocalizedSleep(outputFolder);
-                    installer.menuToAppend = GetOrCreateLocalizedSleepEntry(outputFolder, sleepMenu);
+                    // The sleep menu is now an MA Menu Item hierarchy under the MenuGroup on this
+                    // prefab. Leaving menuToAppend null makes the installer source from that
+                    // MenuGroup. The install target is the localised main menu when the main prefab
+                    // is present, otherwise the avatar's root expression menu.
+                    installer.menuToAppend = null;
                     installer.installTargetMenu = nestUnderMainMenu ? GetOrCreateLocalizedMainMenu(outputFolder) : null;
                     EditorUtility.SetDirty(installer);
                 }
+
+                LocalizeSleepMenuItems(host);
 
                 PrefabUtility.SaveAsPrefabAsset(host, prefabPath, out var saved);
                 if (!saved)
@@ -383,6 +385,44 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             return prefabPath;
+        }
+
+        // Walks the MA Menu Item hierarchy under the sleep prefab's MenuGroup and writes the
+        // active language labels onto each control. The source prefab keeps the controls' names
+        // blank so GameObject names can serve as stable keys, while the in-game labels follow the
+        // language used at build time.
+        private static void LocalizeSleepMenuItems(GameObject host)
+        {
+            var menuGroup = host.GetComponent<ModularAvatarMenuGroup>();
+            if (menuGroup == null || menuGroup.targetObject == null)
+            {
+                return;
+            }
+
+            foreach (var item in menuGroup.targetObject.GetComponentsInChildren<ModularAvatarMenuItem>(true))
+            {
+                if (item.Control == null)
+                {
+                    continue;
+                }
+
+                var parameterName = item.Control.parameter != null ? item.Control.parameter.name : null;
+
+                if (item.Control.type == VRCExpressionsMenu.Control.ControlType.SubMenu)
+                {
+                    item.label = Localized.menuSleep;
+                }
+                else if (parameterName == EasyLocoConst.SleepModeParam)
+                {
+                    item.label = Localized.menuSleepLoco;
+                }
+                else if (parameterName == EasyLocoConst.FeetLockParam)
+                {
+                    item.label = Localized.menuFeetLock;
+                }
+
+                EditorUtility.SetDirty(item);
+            }
         }
 
         // Which poses this stance actually contributes, and therefore whether it replaces the
@@ -1238,31 +1278,6 @@ namespace Puetsua.VRCEasyLoco.Editor
                 outputFolder + "/EasyLocoEntry.asset",
                 null,
                 new Dictionary<string, VRCExpressionsMenu> { { "EasyLoco", mainMenu } });
-        }
-
-        // The localised Sleep menu: "Sleep Loco" and "Feet Lock" toggles follow the active language.
-        private static VRCExpressionsMenu GetOrCreateLocalizedSleep(string outputFolder)
-        {
-            return LocalizeMenuCopy(
-                EasyLocoConst.SleepMenuPath,
-                outputFolder + "/EasyLocoSleep.asset",
-                new Dictionary<string, string>
-                {
-                    { "Sleep Loco", Localized.menuSleepLoco },
-                    { "Feet Lock", Localized.menuFeetLock },
-                },
-                null);
-        }
-
-        // The localised Sleep entry: "Sleep" follows the active language and points at the localised
-        // Sleep menu.
-        private static VRCExpressionsMenu GetOrCreateLocalizedSleepEntry(string outputFolder, VRCExpressionsMenu sleepMenu)
-        {
-            return LocalizeMenuCopy(
-                EasyLocoConst.SleepEntryMenuPath,
-                outputFolder + "/EasyLocoSleepEntry.asset",
-                new Dictionary<string, string> { { "Sleep", Localized.menuSleep } },
-                new Dictionary<string, VRCExpressionsMenu> { { "Sleep", sleepMenu } });
         }
 
         private static ModularAvatarParameters GetOrCreateMaParameters(GameObject host)

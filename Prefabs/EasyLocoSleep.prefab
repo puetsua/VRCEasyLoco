@@ -1,5 +1,37 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &376270044323765344
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4426849239881501477}
+  m_Layer: 0
+  m_Name: Menu
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4426849239881501477
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 376270044323765344}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3501288575179515708}
+  m_Father: {fileID: 2847700329950393573}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &591893889310795336
 GameObject:
   m_ObjectHideFlags: 0
@@ -48,6 +80,7 @@ MonoBehaviour:
   shapeType: 1
   radius: 0.2
   height: 0.5
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
@@ -56,6 +89,7 @@ MonoBehaviour:
   - EasyLocoSleepFacing
   allowSelf: 1
   allowOthers: 0
+  useFaceProximity: 0
   receiverType: 2
   parameter: EasyLocoFacingRight
   minVelocity: 0.05
@@ -107,6 +141,7 @@ MonoBehaviour:
   shapeType: 1
   radius: 0.2
   height: 0.5
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
@@ -115,6 +150,7 @@ MonoBehaviour:
   - EasyLocoSleepFacing
   allowSelf: 1
   allowOthers: 0
+  useFaceProximity: 0
   receiverType: 2
   parameter: EasyLocoFacingUp
   minVelocity: 0.05
@@ -166,6 +202,7 @@ MonoBehaviour:
   shapeType: 1
   radius: 0.1
   height: 0.4
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
@@ -220,12 +257,211 @@ MonoBehaviour:
   shapeType: 0
   radius: 0.05
   height: 2
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
   contentTypes: 1
   collisionTags:
   - EasyLocoSleepFacing
+--- !u!1 &2494841043470567002
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3501288575179515708}
+  - component: {fileID: 5356630588486164005}
+  m_Layer: 0
+  m_Name: Sleep
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3501288575179515708
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2494841043470567002}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8445549393866089048}
+  - {fileID: 7676558287947367795}
+  m_Father: {fileID: 4426849239881501477}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5356630588486164005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2494841043470567002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b29d45007c5493d926d2cd45a489529, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
+  Control:
+    name: 
+    icon: {fileID: 0}
+    type: 103
+    parameter:
+      name: 
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  MenuSource: 1
+  menuSource_otherObjectChildren: {fileID: 0}
+  isSynced: 1
+  isSaved: 1
+  isDefault: 0
+  automaticValue: 1
+  label: 
+--- !u!1 &3148971101663507972
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7676558287947367795}
+  - component: {fileID: 759051743562045769}
+  m_Layer: 0
+  m_Name: FeetLock
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7676558287947367795
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3148971101663507972}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3501288575179515708}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &759051743562045769
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3148971101663507972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b29d45007c5493d926d2cd45a489529, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
+  Control:
+    name: 
+    icon: {fileID: 0}
+    type: 102
+    parameter:
+      name: EasyLocoFeetLock
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  MenuSource: 1
+  menuSource_otherObjectChildren: {fileID: 0}
+  isSynced: 1
+  isSaved: 1
+  isDefault: 0
+  automaticValue: 1
+  label: 
+
+--- !u!1 &3724994111309466533
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8445549393866089048}
+  - component: {fileID: 6870517118688119367}
+  m_Layer: 0
+  m_Name: SleepMode
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8445549393866089048
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3724994111309466533}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3501288575179515708}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6870517118688119367
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3724994111309466533}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b29d45007c5493d926d2cd45a489529, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
+  Control:
+    name: 
+    icon: {fileID: 0}
+    type: 102
+    parameter:
+      name: EasyLocoSleepMode
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  MenuSource: 1
+  menuSource_otherObjectChildren: {fileID: 0}
+  isSynced: 1
+  isSaved: 1
+  isDefault: 0
+  automaticValue: 1
+  label: 
 --- !u!1 &5668023582818466129
 GameObject:
   m_ObjectHideFlags: 0
@@ -274,6 +510,7 @@ MonoBehaviour:
   shapeType: 0
   radius: 0.05
   height: 2
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
@@ -282,6 +519,7 @@ MonoBehaviour:
   - EasyLocoSleepHeadUpDown
   allowSelf: 1
   allowOthers: 1
+  useFaceProximity: 0
   receiverType: 0
   parameter: EasyLocoHeadUp
   minVelocity: 0.05
@@ -330,6 +568,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42581d8044b64899834d3d515ab3a144, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 
+    MinimumVersion: 
   boneReference: 10
   subPath: 
   attachmentMode: 1
@@ -382,6 +623,7 @@ MonoBehaviour:
   shapeType: 1
   radius: 0.2
   height: 0.5
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
@@ -390,6 +632,7 @@ MonoBehaviour:
   - EasyLocoSleepFacing
   allowSelf: 1
   allowOthers: 0
+  useFaceProximity: 0
   receiverType: 2
   parameter: EasyLocoFacingLeft
   minVelocity: 0.05
@@ -441,6 +684,7 @@ MonoBehaviour:
   shapeType: 1
   radius: 0.2
   height: 0.5
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
@@ -449,6 +693,7 @@ MonoBehaviour:
   - EasyLocoSleepFacing
   allowSelf: 1
   allowOthers: 0
+  useFaceProximity: 0
   receiverType: 2
   parameter: EasyLocoFacingDown
   minVelocity: 0.05
@@ -536,6 +781,7 @@ MonoBehaviour:
   shapeType: 0
   radius: 0.05
   height: 2
+  size: {x: 1, y: 1, z: 1}
   position: {x: 0, y: 0, z: 0}
   rotation: {x: 0, y: 0, z: 0, w: 1}
   localOnly: 0
@@ -544,6 +790,7 @@ MonoBehaviour:
   - EasyLocoSleepHeadUpDown
   allowSelf: 1
   allowOthers: 1
+  useFaceProximity: 0
   receiverType: 0
   parameter: EasyLocoHeadDown
   minVelocity: 0.05
@@ -703,6 +950,7 @@ GameObject:
   - component: {fileID: 4378401819802779393}
   - component: {fileID: 3595622672412218828}
   - component: {fileID: 6313109154183665844}
+  - component: {fileID: 2927863265567407249}
   m_Layer: 0
   m_Name: EasyLocoSleep
   m_TagString: Untagged
@@ -725,6 +973,7 @@ Transform:
   m_Children:
   - {fileID: 3438290604097756502}
   - {fileID: 3954396226414829885}
+  - {fileID: 4426849239881501477}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4378401819802779393
@@ -739,6 +988,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71a96d4ea0c344f39e277d82035bf9bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 
+    MinimumVersion: 
   parameters:
   - nameOrPrefix: EasyLocoFacingUp
     remapTo: 
@@ -812,8 +1064,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7ef83cb0c23d4d7c9d41021e544a1978, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  menuToAppend: {fileID: 11400000, guid: e4b2b7d113f88b54691013458aa1c711, type: 2}
-  installTargetMenu: {fileID: 11400000, guid: d2ed5572b3b33bf429a46ebbaa39d761, type: 2}
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 
+    MinimumVersion: 
+  menuToAppend: {fileID: 0}
+  installTargetMenu: {fileID: 0}
 --- !u!114 &6313109154183665844
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -826,6 +1081,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1bb122659f724ebf85fe095ac02dc339, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 
+    MinimumVersion: 
   animator: {fileID: 9100000, guid: 3ed56bb908e3066478c2af5ebfe2677e, type: 2}
   layerType: 0
   deleteAttachedAnimator: 0
@@ -836,3 +1094,19 @@ MonoBehaviour:
     targetObject: {fileID: 0}
   layerPriority: 100
   mergeAnimatorMode: 0
+--- !u!114 &2927863265567407249
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9047761723811081999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97e46a47dd8a425eb4ce9411defe313d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
+  targetObject: {fileID: 376270044323765344}

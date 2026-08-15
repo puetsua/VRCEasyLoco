@@ -65,14 +65,6 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string MenusFolder = PackageRoot + "/Menus";
         public const string MainMenuPath = MenusFolder + "/EasyLocoMain.asset";
         public const string ActionMenuPath = MenusFolder + "/Action.asset";
-        public const string SleepMenuPath = MenusFolder + "/EasyLocoSleep.asset";
-
-        // The Sleep sub-menu is installed by a menu installer on the sleep prefab rather than sitting
-        // in EasyLocoMain's controls, so an avatar without the sleeping module never shows the entry.
-        // The build retargets that installer: under EasyLocoMain when the avatar has the main prefab,
-        // at the root menu when it does not. Recorded here for the reader - the menu asset itself is
-        // referenced from the prefab, so nothing in code loads this path.
-        public const string SleepEntryMenuPath = MenusFolder + "/EasyLocoSleepEntry.asset";
 
         // Header artwork drawn at the top of the component inspector. Authored at 400x80; the
         // inspector scales it down to the panel width and never draws it larger than that.
