@@ -808,7 +808,14 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName, bool applyHeightOffset = false)
         {
-            if (controller == null || replacements == null || replacements.IsEmpty)
+            if (controller == null || replacements == null)
+            {
+                return;
+            }
+
+            // The sleep build may have no named replacements (user kept default clips), but still
+            // needs to clone shared DefaultSleeping* trees and duplicate their leaves.
+            if (replacements.IsEmpty && !applyHeightOffset)
             {
                 return;
             }
@@ -930,7 +937,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 var needsReplacement = SubtreeContainsReplacement(blendTree, replacements);
                 var needsHeightOffset = applyHeightOffset && SubtreeContainsHeightOffsetTree(blendTree);
-                var isSleepTree = applyHeightOffset && IsSleepBlendTree(blendTree);
+                var isSleepTree = applyHeightOffset && IsOrContainsSleepBlendTree(blendTree);
                 if (!needsReplacement && !needsHeightOffset && !isSleepTree)
                 {
                     return blendTree;
@@ -954,11 +961,6 @@ namespace Puetsua.VRCEasyLoco.Editor
 
                 // Blend trees embedded inside the copied controller are owned by it and safe to edit.
                 ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath, clones, applyHeightOffset);
-
-                if (isSleepTree)
-                {
-                    DuplicateSleepTreeLeaves(blendTree, outputFolder);
-                }
 
                 return blendTree;
             }
@@ -1036,12 +1038,35 @@ namespace Puetsua.VRCEasyLoco.Editor
             return blendTree.name != null && blendTree.name.StartsWith("DefaultSleeping");
         }
 
+        // True if this tree itself is a sleep tree or contains one somewhere underneath. This lets
+        // the sleep build catch intermediate blenders (e.g. a plain "Blend Tree" that blends
+        // between DefaultSleeping* variants) so the shared sleep assets inside are cloned and
+        // duplicated.
+        private static bool IsOrContainsSleepBlendTree(BlendTree blendTree)
+        {
+            if (IsSleepBlendTree(blendTree))
+            {
+                return true;
+            }
+
+            foreach (var child in blendTree.children)
+            {
+                if (child.motion is BlendTree childTree && IsOrContainsSleepBlendTree(childTree))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         // For the sleep build only. Duplicates every leaf AnimationClip inside a sleep blend tree
         // so the generated controller does not depend on shared package assets. Non-5m trees get a
         // plain copy; 5m trees get a copy with +5 added to RootT.y. User overrides have already
         // been applied by the time this runs, so duplicated clips derive from the EasyLoco
-        // configuration.
-        private static void DuplicateSleepTreeLeaves(BlendTree blendTree, string outputFolder)
+        // configuration. Uses a cache so the same source clip produces exactly one duplicate per
+        // variant (plain / 5m) regardless of how many trees reference it.
+        private static void DuplicateSleepTreeLeaves(BlendTree blendTree, string outputFolder, Dictionary<(AnimationClip source, bool is5m), AnimationClip> cache)
         {
             var children = blendTree.children;
             var changed = false;
@@ -1058,8 +1083,8 @@ namespace Puetsua.VRCEasyLoco.Editor
                 if (motion is AnimationClip clip)
                 {
                     var duplicate = is5m
-                        ? GetOrCreateHeightOffsetClip(clip, outputFolder)
-                        : GetOrCreateSleepDuplicateClip(clip, outputFolder);
+                        ? GetOrCreateHeightOffsetClip(clip, outputFolder, cache)
+                        : GetOrCreateSleepDuplicateClip(clip, outputFolder, cache);
                     if (duplicate != clip)
                     {
                         children[i].motion = duplicate;
@@ -1068,7 +1093,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
                 else if (motion is BlendTree childTree)
                 {
-                    DuplicateSleepTreeLeaves(childTree, outputFolder);
+                    DuplicateSleepTreeLeaves(childTree, outputFolder, cache);
                 }
             }
 
@@ -1083,17 +1108,24 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         // Creates a plain duplicate of an AnimationClip in the generated sleep folder. Used for
         // non-5m sleep trees so the avatar owns its own copy of every sleep animation.
-        private static AnimationClip GetOrCreateSleepDuplicateClip(AnimationClip source, string outputFolder)
+        private static AnimationClip GetOrCreateSleepDuplicateClip(AnimationClip source, string outputFolder, Dictionary<(AnimationClip source, bool is5m), AnimationClip> cache)
         {
             if (source == null)
             {
                 return null;
             }
 
-            var outputPath = outputFolder + "/EL_Sleep_" + SanitizeFileName(source.name) + ".anim";
+            var key = (source, false);
+            if (cache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var outputPath = outputFolder + "/ELSleep" + SanitizeFileName(source.name) + ".anim";
             var existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(outputPath);
             if (existing != null)
             {
+                cache[key] = existing;
                 return existing;
             }
 
@@ -1101,6 +1133,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             duplicate.name = source.name;
             AssetDatabase.CreateAsset(duplicate, outputPath);
             EditorUtility.SetDirty(duplicate);
+            cache[key] = duplicate;
             return duplicate;
         }
 
@@ -1108,22 +1141,29 @@ namespace Puetsua.VRCEasyLoco.Editor
         // If the clip has no RootT.y curve, creates one with a constant value of 5. Generated clips
         // are deterministic per source and output folder so rebuilding overwrites instead of piling
         // up copies.
-        private static AnimationClip GetOrCreateHeightOffsetClip(AnimationClip source, string outputFolder)
+        private static AnimationClip GetOrCreateHeightOffsetClip(AnimationClip source, string outputFolder, Dictionary<(AnimationClip source, bool is5m), AnimationClip> cache)
         {
             if (source == null)
             {
                 return null;
             }
 
-            var outputPath = outputFolder + "/EL_Sleep_" + SanitizeFileName(source.name) + "5m.anim";
+            var key = (source, true);
+            if (cache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var outputPath = outputFolder + "/ELSleep" + SanitizeFileName(source.name) + "5m.anim";
             var existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(outputPath);
             if (existing != null)
             {
+                cache[key] = existing;
                 return existing;
             }
 
             var offset = Object.Instantiate(source);
-            offset.name = source.name + "_HeightOffset";
+            offset.name = source.name;
 
             var binding = new EditorCurveBinding
             {
@@ -1154,6 +1194,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             AnimationUtility.SetEditorCurve(offset, binding, curve);
             AssetDatabase.CreateAsset(offset, outputPath);
             EditorUtility.SetDirty(offset);
+            cache[key] = offset;
             return offset;
         }
 
@@ -1220,9 +1261,9 @@ namespace Puetsua.VRCEasyLoco.Editor
             clone.children = children;
             collected.Add(clone);
 
-            if (applyHeightOffset && IsSleepBlendTree(clone))
+            if (applyHeightOffset && IsOrContainsSleepBlendTree(clone))
             {
-                DuplicateSleepTreeLeaves(clone, outputFolder);
+                DuplicateSleepTreeLeaves(clone, outputFolder, new Dictionary<(AnimationClip source, bool is5m), AnimationClip>());
             }
 
             return clone;
