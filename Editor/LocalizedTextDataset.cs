@@ -143,6 +143,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             menuSleepLoco,
             menuFeetLock,
             menuAdjustHeight,
+            menuEnableHeight,
             posePrefix,
             poseDefault,
             poseStandWide1,
