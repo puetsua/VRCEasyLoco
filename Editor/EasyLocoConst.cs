@@ -109,6 +109,15 @@ namespace Puetsua.VRCEasyLoco.Editor
         // sticks once you are upright or awake.
         public const string FeetLockParam = "EL/FeetLock";
 
+        // The height-adjustment feature, driven by an MA Parameters component on the sleep prefab.
+        // EnableHeight is the on/off toggle that switches the sleep pose to its +5m variant;
+        // Height is the radial's 0..1 value that actually raises/lowers the avatar along RootT.y.
+        // Only the sleep build reaches them - the 5m blend trees blend on Height, the menu items
+        // drive and read them - so the names here are the contract with the prefab and template
+        // rather than a parameter the non-sleep build adds.
+        public const string HeightParam = "EL/Height";
+        public const string EnableHeightParam = "EL/EnableHeight";
+
         // Idle-pose selector parameters (one Float per stance, carrying 0..1 - see PoseValue in the
         // builder). Toggle menu items and the nested idle blend trees both reference these by name.
         public const string IdleStandParam = "EL/IdleStand";
