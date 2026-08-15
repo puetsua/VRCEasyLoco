@@ -26,12 +26,16 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
     {
         private readonly List<Object> spawned = new List<Object>();
         private string _folder;
+        private Dictionary<(AnimationClip, bool), AnimationClip> _clipCache;
 
         [SetUp]
         public void SetUp()
         {
             _folder = "Assets/__EasyLocoSleepTests_" + System.Guid.NewGuid().ToString("N");
             AssetDatabase.CreateFolder("Assets", System.IO.Path.GetFileName(_folder));
+            // One cache per test, mirroring the build's single per-build cache shared by every
+            // CloneBlendTree call. A test that wants a fresh build resets this.
+            _clipCache = new Dictionary<(AnimationClip, bool), AnimationClip>();
         }
 
         [TearDown]
@@ -149,15 +153,70 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             Assert.That(FindClip("ELSleepJustAGait.anim"), Is.Null);
         }
 
+        [Test]
+        public void SiblingSleepTreesSharingOneLeafBothResolve()
+        {
+            // The sleep template has several DefaultSleeping* assets (FacingUp, FacingUpFeetLock,
+            // ...) that share the same on-side leaf GUID. The build clones each one independently
+            // through its own CloneBlendTree call, so they must resolve to the same ELSleep asset.
+            // With a per-clone cache and delete-then-create, the first clone's reference would be
+            // orphaned when the second recreated the file with a fresh GUID.
+            var shared = Clip("SleepUp", 0.5f);
+            var up = Tree("DefaultSleepingFacingUp", Child(shared));
+            var feetLock = Tree("DefaultSleepingFacingUpFeetLock", Child(shared));
+
+            // Two separate CloneBlendTree calls, one shared build cache, one output folder - the
+            // shape of the real build.
+            var cloneUp = CloneForSleep(up, new Dictionary<string, Motion>());
+            var cloneFeetLock = CloneForSleep(feetLock, new Dictionary<string, Motion>());
+
+            var leafUp = (AnimationClip)cloneUp.children[0].motion;
+            var leafFeetLock = (AnimationClip)cloneFeetLock.children[0].motion;
+            Assert.That(leafUp, Is.Not.Null, "the first clone's leaf was orphaned");
+            Assert.That(leafFeetLock, Is.Not.Null, "the second clone's leaf did not resolve");
+            Assert.That(AssetDatabase.GetAssetPath(leafUp), Is.EqualTo(_folder + "/ELSleepSleepUp.anim"));
+            Assert.That(AssetDatabase.GetAssetPath(leafFeetLock), Is.EqualTo(AssetDatabase.GetAssetPath(leafUp)),
+                "two clones of one shared leaf must point at the same generated asset");
+            Assert.That(RootY(leafUp), Is.EqualTo(0.5f).Within(0.0001f), "the shared leaf lost its pose");
+            Assert.That(RootY(leafFeetLock), Is.EqualTo(0.5f).Within(0.0001f));
+        }
+
+        [Test]
+        public void RebuildOverwritesAChangedSourceClip()
+        {
+            // Changing a package default or the user's override and rebuilding must update the
+            // generated clip, not pin the stale animation. The rebuild uses a fresh cache (a real
+            // second build would) and must overwrite the existing ELSleep asset in place, keeping
+            // its GUID so earlier references survive.
+            var leaf = Clip("SleepUp", 0.5f);
+            var source = Tree("DefaultSleepingFacingUp", Child(leaf));
+
+            var firstClone = CloneForSleep(source, new Dictionary<string, Motion>());
+            var firstPath = AssetDatabase.GetAssetPath(((AnimationClip)firstClone.children[0].motion));
+            Assert.That(RootY((AnimationClip)firstClone.children[0].motion), Is.EqualTo(0.5f).Within(0.0001f));
+
+            // The source changed between builds; a fresh cache simulates the new build.
+            SetRootY(leaf, 2.5f);
+            _clipCache = new Dictionary<(AnimationClip, bool), AnimationClip>();
+            var secondClone = CloneForSleep(source, new Dictionary<string, Motion>());
+            var secondLeaf = (AnimationClip)secondClone.children[0].motion;
+
+            Assert.That(RootY(secondLeaf), Is.EqualTo(2.5f).Within(0.0001f),
+                "the generated clip still carries the old pose");
+            Assert.That(AssetDatabase.GetAssetPath(secondLeaf), Is.EqualTo(firstPath),
+                "the rebuild should overwrite the same asset, keeping its GUID");
+        }
+
         private BlendTree CloneForSleep(BlendTree source, IReadOnlyDictionary<string, Motion> replacements)
         {
             // _folder is a real Assets folder so CloneBlendTree can write the clone and duplicates.
             // The returned tree is the object CloneBlendTree saved: its duplicated leaf clips are
             // persisted assets (ELSleep*.anim), so their asset paths are valid in memory too - a
             // non-sleep leaf that stays a shared in-memory clip is exactly what the last test needs
-            // to see without a reload that would drop it.
+            // to see without a reload that would drop it. The shared build cache is threaded through
+            // so CloneBlendTree calls within one test share it, as they do in the real build.
             return EasyLocoModularAvatarBuilder.CloneBlendTree(
-                source, new MotionReplacements(replacements), _folder, isSleepBuild: true);
+                source, new MotionReplacements(replacements), _folder, _clipCache, isSleepBuild: true);
         }
 
         private AnimationClip FindClip(string fileName)
@@ -178,6 +237,12 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         {
             var binding = new EditorCurveBinding { path = string.Empty, type = typeof(Animator), propertyName = "RootT.y" };
             return AnimationUtility.GetEditorCurve(clip, binding).keys[0].value;
+        }
+
+        private static void SetRootY(AnimationClip clip, float rootY)
+        {
+            var binding = new EditorCurveBinding { path = string.Empty, type = typeof(Animator), propertyName = "RootT.y" };
+            AnimationUtility.SetEditorCurve(clip, binding, AnimationCurve.Constant(0f, 1f, rootY));
         }
 
         private BlendTree Tree(string name, params ChildMotion[] children)
