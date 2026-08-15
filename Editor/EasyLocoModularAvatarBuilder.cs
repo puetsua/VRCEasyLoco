@@ -329,7 +329,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             var replacements = new Dictionary<string, Motion>();
             AddSleepReplacements(replacements, easyLoco.sleep, outputFolder);
 
-            var controller = (AnimatorController)BuildController(SleepTemplatePath, outputFolder, "EasyLocoSleep.controller", replacements);
+            var controller = (AnimatorController)BuildController(SleepTemplatePath, outputFolder, "EasyLocoSleep.controller", replacements, applyHeightOffset: true);
             EditorUtility.SetDirty(controller);
             return controller;
         }
@@ -604,7 +604,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // scopeStateMachineName limits the replacement to the state machines of that name; null
         // covers the whole controller.
         private static RuntimeAnimatorController BuildController(string sourcePath, string outputFolder, string fileName, IReadOnlyDictionary<string, Motion> replacements,
-            string scopeStateMachineName = null)
+            string scopeStateMachineName = null, bool applyHeightOffset = false)
         {
             LoadTemplate(sourcePath);
 
@@ -620,7 +620,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(outputPath);
-            ReplaceMotions(controller, new MotionReplacements(replacements), outputFolder, scopeStateMachineName);
+            ReplaceMotions(controller, new MotionReplacements(replacements), outputFolder, scopeStateMachineName, applyHeightOffset);
             EditorUtility.SetDirty(controller);
             return controller;
         }
@@ -806,7 +806,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             controller.AddParameter(name, AnimatorControllerParameterType.Float);
         }
 
-        internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName)
+        internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName, bool applyHeightOffset = false)
         {
             if (controller == null || replacements == null || replacements.IsEmpty)
             {
@@ -818,7 +818,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             var clones = new Dictionary<BlendTree, BlendTree>();
             foreach (var root in roots)
             {
-                ReplaceMotions(root, replacements, outputFolder, controllerPath, clones);
+                ReplaceMotions(root, replacements, outputFolder, controllerPath, clones, applyHeightOffset);
             }
 
             // The pre-flight already asked the template this, before anything was written. This one
@@ -900,12 +900,12 @@ namespace Puetsua.VRCEasyLoco.Editor
         // motion of several states, and cloning it per state would have each clone delete the asset
         // the previous state was pointed at, leaving that state with a missing motion. The clone
         // path is deterministic, so the cache is what keeps that safe.
-        private static void ReplaceMotions(AnimatorStateMachine stateMachine, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
+        private static void ReplaceMotions(AnimatorStateMachine stateMachine, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, bool applyHeightOffset = false)
         {
             foreach (var childState in stateMachine.states)
             {
                 var state = childState.state;
-                var replaced = ReplaceMotion(state.motion, replacements, outputFolder, controllerPath, clones);
+                var replaced = ReplaceMotion(state.motion, replacements, outputFolder, controllerPath, clones, applyHeightOffset);
                 if (replaced != state.motion)
                 {
                     state.motion = replaced;
@@ -915,11 +915,11 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             foreach (var childStateMachine in stateMachine.stateMachines)
             {
-                ReplaceMotions(childStateMachine.stateMachine, replacements, outputFolder, controllerPath, clones);
+                ReplaceMotions(childStateMachine.stateMachine, replacements, outputFolder, controllerPath, clones, applyHeightOffset);
             }
         }
 
-        private static Motion ReplaceMotion(Motion motion, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
+        private static Motion ReplaceMotion(Motion motion, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, bool applyHeightOffset = false)
         {
             if (motion == null)
             {
@@ -928,7 +928,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             if (motion is BlendTree blendTree)
             {
-                if (!SubtreeContainsReplacement(blendTree, replacements))
+                var needsReplacement = SubtreeContainsReplacement(blendTree, replacements);
+                var needsHeightOffset = applyHeightOffset && SubtreeContainsHeightOffsetTree(blendTree);
+                if (!needsReplacement && !needsHeightOffset)
                 {
                     return blendTree;
                 }
@@ -942,7 +944,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 {
                     if (!clones.TryGetValue(blendTree, out var clone))
                     {
-                        clone = CloneBlendTree(blendTree, replacements, outputFolder);
+                        clone = CloneBlendTree(blendTree, replacements, outputFolder, applyHeightOffset);
                         clones.Add(blendTree, clone);
                     }
 
@@ -950,14 +952,20 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
 
                 // Blend trees embedded inside the copied controller are owned by it and safe to edit.
-                ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath, clones);
+                ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath, clones, applyHeightOffset);
+
+                if (applyHeightOffset && blendTree.name != null && blendTree.name.EndsWith("5m"))
+                {
+                    OffsetBlendTreeLeaves(blendTree, outputFolder);
+                }
+
                 return blendTree;
             }
 
             return replacements.TryGet(motion.name, out var replacement) ? replacement : motion;
         }
 
-        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones)
+        private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, bool applyHeightOffset = false)
         {
             var children = blendTree.children;
             var changed = false;
@@ -965,7 +973,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             for (var i = 0; i < children.Length; i++)
             {
                 var original = children[i].motion;
-                var replaced = ReplaceMotion(original, replacements, outputFolder, controllerPath, clones);
+                var replaced = ReplaceMotion(original, replacements, outputFolder, controllerPath, clones, applyHeightOffset);
                 if (replaced != original)
                 {
                     children[i].motion = replaced;
@@ -1001,10 +1009,127 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        private static BlendTree CloneBlendTree(BlendTree source, MotionReplacements replacements, string outputFolder)
+        // True if this subtree contains any blend tree whose name ends with 5m. Used only when the
+        // sleep build asks for the height offset, so the replacement walk does not skip trees that
+        // have no named motion replacement but still need their leaves shifted up by 5m.
+        private static bool SubtreeContainsHeightOffsetTree(BlendTree blendTree)
+        {
+            if (blendTree.name != null && blendTree.name.EndsWith("5m"))
+            {
+                return true;
+            }
+
+            foreach (var child in blendTree.children)
+            {
+                if (child.motion is BlendTree childTree && SubtreeContainsHeightOffsetTree(childTree))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // After normal replacement, applies +5 to RootT.y on every leaf AnimationClip inside a
+        // blend tree whose name ends with 5m. The offset is applied to a generated copy, not the
+        // shared package clip.
+        private static void OffsetBlendTreeLeaves(BlendTree blendTree, string outputFolder)
+        {
+            var children = blendTree.children;
+            var changed = false;
+
+            for (var i = 0; i < children.Length; i++)
+            {
+                var motion = children[i].motion;
+                if (motion == null)
+                {
+                    continue;
+                }
+
+                if (motion is AnimationClip clip)
+                {
+                    var offset = GetOrCreateHeightOffsetClip(clip, outputFolder);
+                    if (offset != clip)
+                    {
+                        children[i].motion = offset;
+                        changed = true;
+                    }
+                }
+                else if (motion is BlendTree childTree)
+                {
+                    if (childTree.name == null || !childTree.name.EndsWith("5m"))
+                    {
+                        OffsetBlendTreeLeaves(childTree, outputFolder);
+                    }
+                }
+            }
+
+            if (changed)
+            {
+                blendTree.children = children;
+                EditorUtility.SetDirty(blendTree);
+            }
+        }
+
+        private const float HeightOffsetMeters = 5f;
+
+        // Creates a copy of the given AnimationClip with +5 added to its humanoid RootT.y curve.
+        // If the clip has no RootT.y curve, creates one with a constant value of 5. Generated clips
+        // are deterministic per source and output folder so rebuilding overwrites instead of piling
+        // up copies.
+        private static AnimationClip GetOrCreateHeightOffsetClip(AnimationClip source, string outputFolder)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var outputPath = outputFolder + "/EL_HeightOffset_" + SanitizeFileName(source.name) + ".anim";
+            var existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(outputPath);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var offset = Object.Instantiate(source);
+            offset.name = source.name + "_HeightOffset";
+
+            var binding = new EditorCurveBinding
+            {
+                path = string.Empty,
+                type = typeof(Animator),
+                propertyName = "RootT.y",
+            };
+
+            var curve = AnimationUtility.GetEditorCurve(source, binding);
+            if (curve == null || curve.keys == null || curve.keys.Length == 0)
+            {
+                curve = new AnimationCurve(
+                    new Keyframe(0f, HeightOffsetMeters, 0f, 0f),
+                    new Keyframe(0.041666668f, HeightOffsetMeters, 0f, 0f));
+            }
+            else
+            {
+                var keys = curve.keys;
+                for (var i = 0; i < keys.Length; i++)
+                {
+                    keys[i].value += HeightOffsetMeters;
+                    keys[i].inTangent = 0f;
+                    keys[i].outTangent = 0f;
+                }
+                curve.keys = keys;
+            }
+
+            AnimationUtility.SetEditorCurve(offset, binding, curve);
+            AssetDatabase.CreateAsset(offset, outputPath);
+            EditorUtility.SetDirty(offset);
+            return offset;
+        }
+
+        private static BlendTree CloneBlendTree(BlendTree source, MotionReplacements replacements, string outputFolder, bool applyHeightOffset = false)
         {
             var nested = new List<BlendTree>();
-            var root = CloneBlendTreeInMemory(source, replacements, nested);
+            var root = CloneBlendTreeInMemory(source, replacements, nested, applyHeightOffset);
 
             // Deterministic name so rebuilding overwrites the previous clone instead of piling up copies.
             var clonePath = outputFolder + "/" + GeneratedAssetPrefix + SanitizeFileName(source.name) + ".asset";
@@ -1039,7 +1164,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // Assigning the public properties one at a time would silence the assert too, but it
         // silently drops m_NormalizedBlendValues - serialized, yet with no setter to reach it -
         // along with anything Unity adds to the type later.
-        internal static BlendTree CloneBlendTreeInMemory(BlendTree source, MotionReplacements replacements, List<BlendTree> collected)
+        internal static BlendTree CloneBlendTreeInMemory(BlendTree source, MotionReplacements replacements, List<BlendTree> collected, bool applyHeightOffset = false)
         {
             var clone = new BlendTree();
             EditorUtility.CopySerialized(source, clone);
@@ -1053,7 +1178,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 var motion = children[i].motion;
                 if (motion is BlendTree childTree)
                 {
-                    children[i].motion = CloneBlendTreeInMemory(childTree, replacements, collected);
+                    children[i].motion = CloneBlendTreeInMemory(childTree, replacements, collected, applyHeightOffset);
                 }
                 else if (motion != null && replacements.TryGet(motion.name, out var replacement))
                 {
@@ -1063,6 +1188,12 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             clone.children = children;
             collected.Add(clone);
+
+            if (applyHeightOffset && clone.name != null && clone.name.EndsWith("5m"))
+            {
+                OffsetBlendTreeLeaves(clone, outputFolder);
+            }
+
             return clone;
         }
 

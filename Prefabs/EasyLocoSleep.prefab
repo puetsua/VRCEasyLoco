@@ -296,6 +296,8 @@ Transform:
   m_Children:
   - {fileID: 8445549393866089048}
   - {fileID: 7676558287947367795}
+  - {fileID: 3861943774563955127}
+  - {fileID: 4838287065234542896}
   m_Father: {fileID: 4426849239881501477}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5356630588486164005
@@ -396,7 +398,6 @@ MonoBehaviour:
   isDefault: 0
   automaticValue: 1
   label: 
-
 --- !u!1 &3724994111309466533
 GameObject:
   m_ObjectHideFlags: 0
@@ -697,6 +698,72 @@ MonoBehaviour:
   receiverType: 2
   parameter: EL/FacingDown
   minVelocity: 0.05
+--- !u!1 &6959062513735406989
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3861943774563955127}
+  - component: {fileID: 3888548802311048774}
+  m_Layer: 0
+  m_Name: EnableHeight
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3861943774563955127
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6959062513735406989}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3501288575179515708}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3888548802311048774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6959062513735406989}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b29d45007c5493d926d2cd45a489529, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
+  Control:
+    name: 
+    icon: {fileID: 0}
+    type: 102
+    parameter:
+      name: EL/EnableHeight
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters:
+    - name: EL/Height
+    labels: []
+  MenuSource: 1
+  menuSource_otherObjectChildren: {fileID: 0}
+  isSynced: 1
+  isSaved: 1
+  isDefault: 0
+  automaticValue: 1
+  label: 
 --- !u!1 &7225134400759087305
 GameObject:
   m_ObjectHideFlags: 0
@@ -794,6 +861,72 @@ MonoBehaviour:
   receiverType: 0
   parameter: EL/HeadDown
   minVelocity: 0.05
+--- !u!1 &7578042410924062983
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4838287065234542896}
+  - component: {fileID: 2976948847529630232}
+  m_Layer: 0
+  m_Name: AdjustHeight
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4838287065234542896
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7578042410924062983}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3501288575179515708}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2976948847529630232
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7578042410924062983}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b29d45007c5493d926d2cd45a489529, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _modularAvatarVersionTag:
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
+  Control:
+    name: 
+    icon: {fileID: 0}
+    type: 203
+    parameter:
+      name: 
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters:
+    - name: EL/Height
+    labels: []
+  MenuSource: 1
+  menuSource_otherObjectChildren: {fileID: 0}
+  isSynced: 1
+  isSaved: 1
+  isDefault: 0
+  automaticValue: 1
+  label: 
 --- !u!1 &7947820374941173301
 GameObject:
   m_ObjectHideFlags: 0
@@ -989,8 +1122,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _modularAvatarVersionTag:
-    UpdatedAtVersion: 
-    MinimumVersion: 
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
   parameters:
   - nameOrPrefix: EL/FacingUp
     remapTo: 
@@ -1052,6 +1185,26 @@ MonoBehaviour:
     saved: 0
     hasExplicitDefaultValue: 0
     m_overrideAnimatorDefaults: 0
+  - nameOrPrefix: EL/Height
+    remapTo: 
+    internalParameter: 0
+    isPrefix: 0
+    syncType: 2
+    localOnly: 0
+    defaultValue: 0.25
+    saved: 0
+    hasExplicitDefaultValue: 1
+    m_overrideAnimatorDefaults: 0
+  - nameOrPrefix: EL/EnableHeight
+    remapTo: 
+    internalParameter: 0
+    isPrefix: 0
+    syncType: 3
+    localOnly: 0
+    defaultValue: 0
+    saved: 0
+    hasExplicitDefaultValue: 1
+    m_overrideAnimatorDefaults: 0
 --- !u!114 &3595622672412218828
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1082,8 +1235,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _modularAvatarVersionTag:
-    UpdatedAtVersion: 
-    MinimumVersion: 
+    UpdatedAtVersion: 1.18.1
+    MinimumVersion: 1.18.0
   animator: {fileID: 9100000, guid: 3ed56bb908e3066478c2af5ebfe2677e, type: 2}
   layerType: 0
   deleteAttachedAnimator: 0
@@ -1092,7 +1245,7 @@ MonoBehaviour:
   relativePathRoot:
     referencePath: 
     targetObject: {fileID: 0}
-  layerPriority: 100
+  layerPriority: 10
   mergeAnimatorMode: 0
 --- !u!114 &2927863265567407249
 MonoBehaviour:

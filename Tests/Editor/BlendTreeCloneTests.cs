@@ -132,7 +132,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
             var collected = new List<BlendTree>();
             var clone = EasyLocoModularAvatarBuilder.CloneBlendTreeInMemory(
-                source, new MotionReplacements(new Dictionary<string, Motion>()), collected);
+                source, new MotionReplacements(new Dictionary<string, Motion>()), collected, applyHeightOffset: false);
             Track(collected);
 
             var clonedNested = clone.children[1].motion as BlendTree;
@@ -186,7 +186,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         {
             var collected = new List<BlendTree>();
             var clone = EasyLocoModularAvatarBuilder.CloneBlendTreeInMemory(
-                source, new MotionReplacements(replacements), collected);
+                source, new MotionReplacements(replacements), collected, applyHeightOffset: false);
             Track(collected);
             return clone;
         }
