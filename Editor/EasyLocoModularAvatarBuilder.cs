@@ -1129,7 +1129,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         private static BlendTree CloneBlendTree(BlendTree source, MotionReplacements replacements, string outputFolder, bool applyHeightOffset = false)
         {
             var nested = new List<BlendTree>();
-            var root = CloneBlendTreeInMemory(source, replacements, nested, applyHeightOffset);
+            var root = CloneBlendTreeInMemory(source, replacements, nested, applyHeightOffset, outputFolder);
 
             // Deterministic name so rebuilding overwrites the previous clone instead of piling up copies.
             var clonePath = outputFolder + "/" + GeneratedAssetPrefix + SanitizeFileName(source.name) + ".asset";
@@ -1164,7 +1164,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         // Assigning the public properties one at a time would silence the assert too, but it
         // silently drops m_NormalizedBlendValues - serialized, yet with no setter to reach it -
         // along with anything Unity adds to the type later.
-        internal static BlendTree CloneBlendTreeInMemory(BlendTree source, MotionReplacements replacements, List<BlendTree> collected, bool applyHeightOffset = false)
+        internal static BlendTree CloneBlendTreeInMemory(BlendTree source, MotionReplacements replacements, List<BlendTree> collected, bool applyHeightOffset = false, string outputFolder = null)
         {
             var clone = new BlendTree();
             EditorUtility.CopySerialized(source, clone);
@@ -1178,7 +1178,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 var motion = children[i].motion;
                 if (motion is BlendTree childTree)
                 {
-                    children[i].motion = CloneBlendTreeInMemory(childTree, replacements, collected, applyHeightOffset);
+                    children[i].motion = CloneBlendTreeInMemory(childTree, replacements, collected, applyHeightOffset, outputFolder);
                 }
                 else if (motion != null && replacements.TryGet(motion.name, out var replacement))
                 {
