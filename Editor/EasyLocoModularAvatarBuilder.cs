@@ -416,7 +416,8 @@ namespace Puetsua.VRCEasyLoco.Editor
                 {
                     item.label = Localized.menuEnableHeight;
                 }
-                else if (HasSubParameter(item.Control, EasyLocoConst.HeightParam))
+                else if (parameterName == EasyLocoConst.AdjustHeightParam
+                    || HasSubParameter(item.Control, EasyLocoConst.HeightParam))
                 {
                     item.label = Localized.menuAdjustHeight;
                 }

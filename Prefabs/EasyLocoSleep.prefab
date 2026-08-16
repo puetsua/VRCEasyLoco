@@ -913,7 +913,7 @@ MonoBehaviour:
     icon: {fileID: 0}
     type: 203
     parameter:
-      name: 
+      name: EL/AdjustHeight
     value: 1
     style: 0
     subMenu: {fileID: 0}
@@ -1201,6 +1201,16 @@ MonoBehaviour:
     isPrefix: 0
     syncType: 3
     localOnly: 0
+    defaultValue: 0
+    saved: 0
+    hasExplicitDefaultValue: 1
+    m_overrideAnimatorDefaults: 0
+  - nameOrPrefix: EL/AdjustHeight
+    remapTo: 
+    internalParameter: 0
+    isPrefix: 0
+    syncType: 3
+    localOnly: 1
     defaultValue: 0
     saved: 0
     hasExplicitDefaultValue: 1

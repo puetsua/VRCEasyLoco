@@ -100,6 +100,14 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             Assert.That(byName[EasyLocoConst.HeightParam].defaultFloat, Is.EqualTo(0f),
                 "EL/Height defaults to 0 so a fresh install sits on the normal pose");
             Assert.That(byName[EasyLocoConst.EnableHeightParam].defaultBool, Is.False);
+            Assert.That(byName.ContainsKey(EasyLocoConst.AdjustHeightParam), Is.True,
+                "EL/AdjustHeight must be declared so PoseSpace can see the radial is open");
+            Assert.That(byName[EasyLocoConst.AdjustHeightParam].type,
+                Is.EqualTo(AnimatorControllerParameterType.Bool));
+            Assert.That(byName.ContainsKey("EL/AdjustingHeight"), Is.False,
+                "EL/AdjustingHeight is a leftover typo - use EL/AdjustHeight");
+            Assert.That(byName.ContainsKey("IsLocal"), Is.True,
+                "IsLocal must be declared so PoseSpace can loop locally");
         }
 
         [Test]
@@ -131,6 +139,74 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 Is.EqualTo(EasyLocoConst.EyeHeightNormZeroClip));
             Assert.That(AssetDatabase.GetAssetPath(tree.children[1].motion),
                 Is.EqualTo(EasyLocoConst.EyeHeightNormOneClip));
+        }
+
+        [Test]
+        public void PoseSpaceLayerEntersWhileAdjustingHeight()
+        {
+            var controller = LoadController();
+            var layer = controller.layers.FirstOrDefault(item => item.name == EasyLocoConst.PoseSpaceLayer);
+            Assert.That(layer, Is.Not.Null, "PoseSpaceLoopSet layer missing from the sleep template");
+            Assert.That(layer.defaultWeight, Is.EqualTo(1f));
+
+            var byName = layer.stateMachine.states
+                .Select(child => child.state)
+                .Where(state => state != null)
+                .ToDictionary(state => state.name);
+            Assert.That(byName.Keys, Is.EquivalentTo(new[]
+            {
+                EasyLocoConst.PoseSpaceIdleState,
+                EasyLocoConst.PoseSpaceSleepIdleState,
+                EasyLocoConst.PoseSpaceState,
+                EasyLocoConst.PoseSpaceRepeatState,
+            }));
+            Assert.That(layer.stateMachine.defaultState.name, Is.EqualTo(EasyLocoConst.PoseSpaceIdleState));
+
+            var idle = byName[EasyLocoConst.PoseSpaceIdleState];
+            var sleepIdle = byName[EasyLocoConst.PoseSpaceSleepIdleState];
+            var poseSpace = byName[EasyLocoConst.PoseSpaceState];
+            var repeat = byName[EasyLocoConst.PoseSpaceRepeatState];
+
+            Assert.That(idle.transitions.Any(transition =>
+                    transition.destinationState == sleepIdle
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == EasyLocoConst.SleepModeParam && condition.mode == AnimatorConditionMode.If)
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == "Upright" && condition.mode == AnimatorConditionMode.Less)),
+                Is.True,
+                "Idle must enter SleepModeIdle when SleepMode is on and Upright is low");
+
+            Assert.That(sleepIdle.transitions.Any(transition =>
+                    transition.destinationState == poseSpace
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.If)
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == EasyLocoConst.AdjustHeightParam && condition.mode == AnimatorConditionMode.If)),
+                Is.True,
+                "SleepModeIdle must enter PoseSpace when EnableHeight and AdjustHeight are on");
+            Assert.That(sleepIdle.transitions.Where(transition =>
+                    transition.destinationState == idle
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == "Upright" && condition.mode == AnimatorConditionMode.Greater))
+                .All(transition => transition.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.IfNot)),
+                Is.True,
+                "SleepModeIdle must not return to Idle on Upright while EnableHeight is on");
+
+            Assert.That(poseSpace.transitions.Any(transition =>
+                    transition.destinationState == repeat
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == "IsLocal" && condition.mode == AnimatorConditionMode.If)),
+                Is.True,
+                "PoseSpace must loop locally through PoseSpaceRepeat");
+            Assert.That(repeat.transitions.Any(transition =>
+                    transition.destinationState == poseSpace
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == "IsLocal" && condition.mode == AnimatorConditionMode.If)),
+                Is.True);
+
+            Assert.That(poseSpace.behaviours, Is.Not.Empty, "PoseSpace must enter VRC pose space");
+            Assert.That(repeat.behaviours, Is.Not.Empty, "PoseSpaceRepeat must re-enter VRC pose space");
         }
 
         [Test]

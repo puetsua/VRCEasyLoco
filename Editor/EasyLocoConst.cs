@@ -124,7 +124,15 @@ namespace Puetsua.VRCEasyLoco.Editor
         // normal pose even if EnableHeight is already on.
         public const string HeightParam = "EL/Height";
         public const string EnableHeightParam = "EL/EnableHeight";
+        // Held true while the Adjust Height radial is open. The PoseSpaceLoopSet layer uses this
+        // (with EnableHeight) to enter VRC pose space so lift does not fight tracking.
+        public const string AdjustHeightParam = "EL/AdjustHeight";
         public const string HeightStateSuffix = " Height";
+        public const string PoseSpaceLayer = "PoseSpaceLoopSet";
+        public const string PoseSpaceIdleState = "Idle";
+        public const string PoseSpaceSleepIdleState = "SleepModeIdle";
+        public const string PoseSpaceState = "PoseSpace";
+        public const string PoseSpaceRepeatState = "PoseSpaceRepeat";
 
         // VRChat's built-in eye height in metres. The Action Menu scale dial runs 0.2..5.0; worlds
         // can push it outside that. The EyeHeightNorm layer writes [[EyeHeightNormParam]] every
