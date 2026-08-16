@@ -744,17 +744,16 @@ namespace Puetsua.VRCEasyLoco.Editor
             settings.mirror = slot.mirror;
             AnimationUtility.SetAnimationClipSettings(clip, settings);
 
-            // Named after the slot, not the pose, so rebuilding overwrites in place and two slots
-            // sharing a yaw still get one asset each - no clone can delete another's file.
-            clip.name = placeholder.name;
-            var path = outputFolder + "/" + GeneratedAssetPrefix + SanitizeFileName(placeholder.name) + ".anim";
-            if (AssetDatabase.LoadAssetAtPath<Object>(path) != null)
+            // Persist as the slot's generated leaf (ELSleepSideFacingUp.anim), not EasyLoco* -
+            // DuplicateSleepTreeLeaves would otherwise write EL* and leave this file unreferenced.
+            var path = outputFolder + "/" + EasyLocoConst.GeneratedSleepClipName(placeholder.name, is5m: false) + ".anim";
+            var persisted = GetOrCreateClipAssetInPlace(path, clip, is5m: false);
+            if (persisted != clip)
             {
-                AssetDatabase.DeleteAsset(path);
+                Object.DestroyImmediate(clip);
             }
-            AssetDatabase.CreateAsset(clip, path);
-            EditorUtility.SetDirty(clip);
-            return clip;
+
+            return persisted;
         }
 
         private static Dictionary<string, Motion> BuildAfkOverrides(EasyLoco easyLoco)

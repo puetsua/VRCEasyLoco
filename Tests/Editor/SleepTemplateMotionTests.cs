@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -21,10 +20,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         private const string SleepTemplatePath =
             EasyLocoConst.PackageRoot + "/Animators/EasyLocoSleepTemplate.controller";
 
-        // The 0-curve clip the passthrough states are expected to play. A null motion here is the
-        // bug, not a simplification.
-        private const string EasyLocoEmptyGuid = "30e0006b5260f8649a77be2f3c38595a";
-
         // Crouching (Empty) is the SleepLocomotion layer's default state - always active while
         // awake - and Tracking/Locked are the FeetLock layer's defaults. A null motion on any of
         // these stomps the base locomotion every frame.
@@ -38,36 +33,39 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void PassthroughStatesUseEasyLocoEmptyNotNoMotion()
         {
-            var states = LoadStatesByName();
             var expectedClip = LoadEasyLocoEmptyClip();
 
             foreach (var name in PassthroughStates)
             {
-                Assert.That(states, Contains.Key(name), $"{name} state missing from sleep template");
+                var states = FindStatesNamed(name);
+                Assert.That(states, Is.Not.Empty, $"{name} state missing from sleep template");
 
-                var motion = states[name].motion;
-                Assert.That(motion, Is.Not.Null,
-                    $"{name} has no motion (null). A null-motion Override layer at weight 1 stomps the "
-                    + "base locomotion - the avatar's legs lock and the walk animation is lost. "
-                    + "Use the EasyLocoEmpty clip instead.");
-                Assert.That(AssetDatabase.GetAssetPath(motion),
-                    Is.EqualTo(AssetDatabase.GetAssetPath(expectedClip)),
-                    $"{name} should play EasyLocoEmpty so the layer passes through while awake");
+                foreach (var state in states)
+                {
+                    var motion = state.motion;
+                    Assert.That(motion, Is.Not.Null,
+                        $"{name} has no motion (null). A null-motion Override layer at weight 1 stomps the "
+                        + "base locomotion - the avatar's legs lock and the walk animation is lost. "
+                        + "Use the EasyLocoEmpty clip instead.");
+                    Assert.That(AssetDatabase.GetAssetPath(motion),
+                        Is.EqualTo(AssetDatabase.GetAssetPath(expectedClip)),
+                        $"{name} should play EasyLocoEmpty so the layer passes through while awake");
+                }
             }
         }
 
-        private static Dictionary<string, AnimatorState> LoadStatesByName()
+        private static List<AnimatorState> FindStatesNamed(string name)
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(SleepTemplatePath);
             Assume.That(controller, Is.Not.Null, $"Sleep template not found at {SleepTemplatePath}");
 
-            var byName = new Dictionary<string, AnimatorState>();
+            var found = new List<AnimatorState>();
             foreach (var layer in controller.layers)
             {
-                CollectStates(layer.stateMachine, byName);
+                CollectStatesNamed(layer.stateMachine, name, found);
             }
 
-            return byName;
+            return found;
         }
 
         private static AnimationClip LoadEasyLocoEmptyClip()
@@ -77,13 +75,13 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             return clip;
         }
 
-        private static void CollectStates(AnimatorStateMachine stateMachine, Dictionary<string, AnimatorState> into)
+        private static void CollectStatesNamed(AnimatorStateMachine stateMachine, string name, List<AnimatorState> into)
         {
             foreach (var child in stateMachine.states)
             {
-                if (child.state != null && !into.ContainsKey(child.state.name))
+                if (child.state != null && child.state.name == name)
                 {
-                    into[child.state.name] = child.state;
+                    into.Add(child.state);
                 }
             }
 
@@ -91,7 +89,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             {
                 if (child.stateMachine != null)
                 {
-                    CollectStates(child.stateMachine, into);
+                    CollectStatesNamed(child.stateMachine, name, into);
                 }
             }
         }
