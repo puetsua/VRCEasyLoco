@@ -104,9 +104,13 @@ namespace Puetsua.VRCEasyLoco.Editor
         // Drives the FeetLock layer in the sleep controller, locking both feet to the animated pose
         // (VRC tracking control). Set from the Feet Lock toggle in the Sleep sub-menu; it only
         // engages while [[SleepModeParam]] is on and Upright is below 0.43 (lying down asleep). The
-        // layer releases when sleep ends, when the toggle is cleared, or when Upright passes 0.43 -
-        // and the release path's parameter driver clears this back to false, so the toggle never
-        // sticks once you are upright or awake.
+        // layer releases when sleep ends, when the toggle is cleared, or when Upright passes 0.43
+        // while [[EnableHeightParam]] is off. Height lift raises the avatar without leaving sleep,
+        // so Upright climbing must not unlock the feet or exit SleepMode while EnableHeight is on.
+        // Switching FeetLock while lifted also stays inside sleep: the parent Sleeping machine
+        // re-enters the other lock SM when SleepMode and EnableHeight are both on, even if Upright
+        // is already above 0.43. The release path's parameter driver still clears FeetLock when
+        // that path does run.
         public const string FeetLockParam = "EL/FeetLock";
 
         // The height-adjustment feature, driven by an MA Parameters component on the sleep prefab.

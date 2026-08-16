@@ -162,6 +162,185 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 "no leftover 1D EnableHeight wrapper should remain");
         }
 
+        [Test]
+        public void UprightWakeDoesNotFireWhileEnableHeightIsOn()
+        {
+            // Height lift raises the avatar, which drives Upright above 0.43. That used to exit
+            // SleepMode and release FeetLock. While EnableHeight is on, those wake paths must stay
+            // closed so the user can keep going up without leaving sleep locomotion.
+            const float wakeThreshold = 0.43f;
+            var wakes = CollectConditionSets()
+                .Where(conditions => conditions.Any(condition =>
+                    condition.parameter == "Upright"
+                    && condition.mode == AnimatorConditionMode.Greater
+                    && Mathf.Approximately(condition.threshold, wakeThreshold)))
+                .ToList();
+
+            Assert.That(wakes, Is.Not.Empty, "expected Upright > 0.43 wake / unlock transitions");
+            foreach (var conditions in wakes)
+            {
+                Assert.That(conditions.Any(condition =>
+                        condition.parameter == EasyLocoConst.EnableHeightParam
+                        && condition.mode == AnimatorConditionMode.IfNot),
+                    Is.True,
+                    "Upright > 0.43 must also require EnableHeight off");
+            }
+        }
+
+        [Test]
+        public void FeetLockCanSwitchWhileSleepingWithEnableHeightOn()
+        {
+            // Child states exit their FeetLock / FeetUnlock SM when the toggle flips. The parent
+            // Sleeping machine must catch that exit and send it to the other SM while SleepMode
+            // and EnableHeight are both on - without requiring Upright < 0.43, which is already
+            // false during height lift.
+            var sleeping = FindStateMachine("Sleeping");
+            Assert.That(sleeping, Is.Not.Null, "Sleeping state machine missing");
+
+            var feetLock = sleeping.stateMachines
+                .Select(child => child.stateMachine)
+                .FirstOrDefault(machine => machine != null && machine.name == "Sleeping FeetLock");
+            var feetUnlock = sleeping.stateMachines
+                .Select(child => child.stateMachine)
+                .FirstOrDefault(machine => machine != null && machine.name == "Sleeping FeetUnlock");
+            Assert.That(feetLock, Is.Not.Null);
+            Assert.That(feetUnlock, Is.Not.Null);
+
+            Assert.That(
+                HasStateMachineRoute(sleeping, feetUnlock, feetLock, lockOn: true),
+                Is.True,
+                "FeetUnlock must re-enter FeetLock while SleepMode and EnableHeight are on");
+            Assert.That(
+                HasStateMachineRoute(sleeping, feetLock, feetUnlock, lockOn: false),
+                Is.True,
+                "FeetLock must re-enter FeetUnlock while SleepMode and EnableHeight are on");
+        }
+
+        [Test]
+        public void EnableHeightOnEntryLandsOnTheHeightSibling()
+        {
+            // Switching FeetLock rebuilds the child SM from Entry. If that lands on the unlifted
+            // pose, height pops down for a frame. EnableHeight-on entries must go to * Height.
+            foreach (var machineName in new[] { "Sleeping FeetLock", "Sleeping FeetUnlock" })
+            {
+                var machine = FindStateMachine(machineName);
+                Assert.That(machine, Is.Not.Null, machineName + " missing");
+
+                var entries = machine.entryTransitions;
+                Assert.That(
+                    HasEntry(entries, "Sleeping Up Height", enableHeight: true, facingDown: false),
+                    Is.True,
+                    machineName + " must enter Sleeping Up Height when EnableHeight is on");
+                Assert.That(
+                    HasEntry(entries, "Sleeping Down Height", enableHeight: true, facingDown: true),
+                    Is.True,
+                    machineName + " must enter Sleeping Down Height when EnableHeight is on and facing down");
+                Assert.That(
+                    HasEntry(entries, "Sleeping Down", enableHeight: false, facingDown: true),
+                    Is.True,
+                    machineName + " must still enter Sleeping Down when EnableHeight is off and facing down");
+            }
+        }
+
+        [Test]
+        public void TrackingCanLockFeetWhileEnableHeightIsOn()
+        {
+            var feetLock = FindStateMachine("FeetLock");
+            Assert.That(feetLock, Is.Not.Null);
+            var tracking = feetLock.states.Select(child => child.state).First(state => state.name == "Tracking");
+            var locked = feetLock.states.Select(child => child.state).First(state => state.name == "Locked");
+
+            var liftLock = tracking.transitions.FirstOrDefault(transition =>
+                transition.destinationState == locked
+                && transition.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.If));
+            Assert.That(liftLock, Is.Not.Null, "Tracking must enter Locked while EnableHeight is on");
+            Assert.That(liftLock.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.FeetLockParam && condition.mode == AnimatorConditionMode.If),
+                Is.True);
+            Assert.That(liftLock.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.SleepModeParam && condition.mode == AnimatorConditionMode.If),
+                Is.True);
+            Assert.That(liftLock.conditions.All(condition => condition.parameter != "Upright"), Is.True,
+                "the lift lock path must not require Upright < 0.43");
+            Assert.That(liftLock.conditions.Where(condition => condition.parameter == EasyLocoConst.EnableHeightParam),
+                Has.All.Matches<AnimatorCondition>(condition => Mathf.Approximately(condition.threshold, 0f)),
+                "EnableHeight is a bool - leave the threshold at 0, not 0.43");
+        }
+
+        private static bool HasEntry(
+            AnimatorTransition[] entries,
+            string destination,
+            bool enableHeight,
+            bool facingDown)
+        {
+            var expectedEnable = enableHeight ? AnimatorConditionMode.If : AnimatorConditionMode.IfNot;
+            return entries.Any(entry =>
+                entry.destinationState != null
+                && entry.destinationState.name == destination
+                && entry.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == expectedEnable)
+                && (!facingDown || (
+                    entry.conditions.Any(condition => condition.parameter == "EL/FacingUp" && condition.mode == AnimatorConditionMode.Less)
+                    && entry.conditions.Any(condition => condition.parameter == "EL/FacingDown" && condition.mode == AnimatorConditionMode.Greater))));
+        }
+
+        private static bool HasStateMachineRoute(
+            AnimatorStateMachine parent,
+            AnimatorStateMachine from,
+            AnimatorStateMachine to,
+            bool lockOn)
+        {
+            var expectedFeet = lockOn ? AnimatorConditionMode.If : AnimatorConditionMode.IfNot;
+            return parent.GetStateMachineTransitions(from).Any(transition =>
+                transition.destinationStateMachine == to
+                && transition.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.FeetLockParam && condition.mode == expectedFeet)
+                && transition.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.SleepModeParam && condition.mode == AnimatorConditionMode.If)
+                && transition.conditions.Any(condition =>
+                    condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.If)
+                && transition.conditions.All(condition => condition.parameter != "Upright"));
+        }
+
+        private static AnimatorStateMachine FindStateMachine(string name)
+        {
+            foreach (var layer in LoadController().layers)
+            {
+                var found = FindStateMachine(layer.stateMachine, name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static AnimatorStateMachine FindStateMachine(AnimatorStateMachine stateMachine, string name)
+        {
+            if (stateMachine == null)
+            {
+                return null;
+            }
+
+            if (stateMachine.name == name)
+            {
+                return stateMachine;
+            }
+
+            foreach (var child in stateMachine.stateMachines)
+            {
+                var found = FindStateMachine(child.stateMachine, name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
         private static bool HasCondition(AnimatorState from, AnimatorState to, AnimatorConditionMode mode, string parameter)
         {
             return from.transitions.Any(transition =>
@@ -210,6 +389,48 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 {
                     CollectHeightStatePairs(child.stateMachine, into);
                 }
+            }
+        }
+
+        private static List<AnimatorCondition[]> CollectConditionSets()
+        {
+            var sets = new List<AnimatorCondition[]>();
+            foreach (var layer in LoadController().layers)
+            {
+                CollectConditionSets(layer.stateMachine, sets);
+            }
+
+            return sets;
+        }
+
+        private static void CollectConditionSets(AnimatorStateMachine stateMachine, List<AnimatorCondition[]> into)
+        {
+            foreach (var child in stateMachine.states)
+            {
+                if (child.state == null)
+                {
+                    continue;
+                }
+
+                foreach (var transition in child.state.transitions)
+                {
+                    into.Add(transition.conditions);
+                }
+            }
+
+            foreach (var child in stateMachine.stateMachines)
+            {
+                if (child.stateMachine == null)
+                {
+                    continue;
+                }
+
+                foreach (var transition in stateMachine.GetStateMachineTransitions(child.stateMachine))
+                {
+                    into.Add(transition.conditions);
+                }
+
+                CollectConditionSets(child.stateMachine, into);
             }
         }
 
