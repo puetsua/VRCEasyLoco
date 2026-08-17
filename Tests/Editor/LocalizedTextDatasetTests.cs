@@ -5,11 +5,7 @@ using NUnit.Framework;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// Guards the dataset contract. There is no per-key fallback by design, so a field nobody filled
-    /// in draws as an empty label rather than as English - which is easy to ship without noticing.
-    /// These tests are what makes that design safe.
-    /// </summary>
+    /// <summary>Every language dataset must fill every string field. There is no fallback.</summary>
     public class LocalizedTextDatasetTests
     {
         private static readonly FieldInfo[] TextFields = typeof(LocalizedTextDataset)
@@ -19,9 +15,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         private SupportedLanguage previousLanguage;
 
-        // SetLanguage writes globals, so every test here puts them back through the same call rather
-        // than poking the fields. The saved *preference* (EditorPrefs) is never touched - a test run
-        // must not change what the user sees next.
         [SetUp]
         public void SetUp()
         {
@@ -61,9 +54,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void AllIsPopulatedWithDistinctDatasets()
         {
-            // Catches the static-initialization-order trap this array exists to avoid: if All were a
-            // field initializer it could run before the datasets in the other partial file and end up
-            // holding nulls.
             Assert.That(LocalizedTextDataset.All, Has.None.Null);
             Assert.That(LocalizedTextDataset.All.Distinct().Count(),
                 Is.EqualTo(LocalizedTextDataset.All.Length), "the same dataset is listed twice");
@@ -96,9 +86,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [TestCase(int.MinValue)]
         public void UnknownStoredLanguageFallsBackToEnglish(int stored)
         {
-            // Feeds the static constructor. If this threw, the runtime would cache a
-            // TypeInitializationException and every later access to the class would rethrow it,
-            // leaving the whole tool dead for the rest of the editor session.
             Assert.That(LocalizedTextDataset.Sanitize(stored), Is.EqualTo(SupportedLanguage.English));
         }
 

@@ -7,22 +7,9 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// The names in <see cref="EasyLocoConst"/> are a contract with the shipped templates: the build
-    /// finds the user's clip a home by matching a motion's name in the locomotion and sleeping
-    /// trees, and a state's name in the Action controller. A template edit that renames one of them
-    /// breaks that contract, and the build now says so instead of dropping the animation - but only
-    /// at build time, in front of whoever pressed the button. These move that failure here, where
-    /// renaming a state or a clip in a template fails in the Test Runner before it ships.
-    /// </summary>
+    /// <summary>Template motion and state names must match <see cref="EasyLocoConst"/>.</summary>
     public class TemplateNameContractTests
     {
-        private const string SleepTemplatePath =
-            EasyLocoConst.PackageRoot + "/Animators/EasyLocoSleepTemplate.controller";
-
-        private const string ActionTemplatePath =
-            EasyLocoConst.PackageRoot + "/Animators/EasyLocoActionTemplate.controller";
-
         [Test]
         public void TheDesktopBranchPlaysEveryIdleClipTheBuildReplaces()
         {
@@ -39,11 +26,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void TheVrBranchPlaysTheBuiltInIdleClips()
         {
-            // Not replaced - VR keeps the built-in poses - and the branch now carries its own
-            // locomotion trees so desktop idle-pose overrides do not fight IK. The trees embed
-            // the VR idle set: standing and prone share the desktop built-ins, while crouch uses
-            // the dedicated squatting clip (a tracked crouch is a squat). A drift here means
-            // someone swapped in a clip the build neither replaces nor expects.
             var played = MotionNames(LocomotionTemplate.Branch(EasyLocoConst.VrLocomotionStateMachine));
 
             Assert.That(played, Is.SupersetOf(new[]
@@ -57,7 +39,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void TheSleepTemplatePlaysEverySleepClipTheBuildReplaces()
         {
-            var played = MotionNames(SleepTemplatePath);
+            var played = MotionNames(EasyLocoConst.SleepTemplatePath);
 
             var expected = new List<string> { EasyLocoConst.SleepUpTarget, EasyLocoConst.SleepDownTarget };
             expected.AddRange(EasyLocoConst.SleepSideTargets);
@@ -69,7 +51,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void TheActionTemplateCarriesEveryAfkState()
         {
-            var states = StateNames(ActionTemplatePath);
+            var states = StateNames(EasyLocoConst.ActionTemplatePath);
 
             var expected = EasyLocoConst.AfkStances
                 .SelectMany(stance => EasyLocoConst.AfkStages.Select(stage => EasyLocoConst.AfkStateName(stance, stage)))
@@ -79,8 +61,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 "the AFK clips are written onto the states of these names, one per stance and phase");
         }
 
-        // Leaf motions only, matching what the build's replacement walk can actually match: blend
-        // trees are recursed into, never swapped by their own name.
         private static HashSet<string> MotionNames(string controllerPath)
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);

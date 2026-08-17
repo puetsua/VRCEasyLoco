@@ -5,25 +5,9 @@ using UnityEditor.Animations;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// The stance transitions in the base locomotion template. These regressed once when sleeping
-    /// was extracted into its own controller: the Prone &lt;-&gt; Crouching transitions were re-created
-    /// with the comparison direction swapped, so crouching snapped into the prone pose (and got
-    /// stuck there) whenever the legs were animator-driven - i.e. in 3-point/desktop, while FBT
-    /// masked it. This pins the four Upright transitions per branch to their expected directions
-    /// and thresholds so a hand-recreated transition can never silently invert or drift again.
-    ///
-    /// Every case runs over both VRMode branches. They are separate copies of the same stance
-    /// machine, so a transition can be inverted in one and not the other - and a VR-only inversion
-    /// is exactly the kind that reaches a headset unnoticed.
-    /// </summary>
+    /// <summary>Upright stance transitions, both VRMode branches. Directions once shipped inverted.</summary>
     public class LocomotionTransitionTests
     {
-        // The desktop branch matches the SDK default locomotion thresholds: standing is Upright
-        // ~1, crouching ~0.5, prone ~0.1, and the boundaries sit at 0.41 / 0.43 / 0.68 / 0.7. The
-        // VR branch is deliberately tuned for tracked stance - wider stand-up hysteresis
-        // (0.63 / 0.8) so IK jitter around the boundary does not bounce between stances, and the
-        // crouch/prone boundaries moved to 0.47 / 0.5 - so each branch pins its own values.
         private static BranchThresholds Thresholds(string branch)
         {
             return branch == EasyLocoConst.VrLocomotionStateMachine

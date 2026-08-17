@@ -13,32 +13,15 @@ namespace Puetsua.VRCEasyLoco.Editor
 {
     internal static class EasyLocoModularAvatarBuilder
     {
-        private const string TemplateControllerFolder = EasyLocoConst.PackageRoot + "/Animators";
-        private const string BaseTemplatePath = TemplateControllerFolder + "/EasyLocoBaseTemplate.controller";
-        private const string ActionTemplatePath = TemplateControllerFolder + "/EasyLocoActionTemplate.controller";
-
-        // Sleeping lives in its own controller layered over the base one rather than inside it, so
-        // switching the feature off is just "do not merge this" - the base locomotion is untouched
-        // either way. Its states play an empty clip whenever the avatar is not asleep, letting the
-        // base layer show through.
-        private const string SleepTemplatePath = TemplateControllerFolder + "/EasyLocoSleepTemplate.controller";
-        private const string EntryMenuPath = EasyLocoConst.MenusFolder + "/EasyLocoEntry.asset";
         private const string EmoteParameterName = "VRCEmote";
         private const string GeneratedRoot = "Assets/PuetsuaWorkshop/Generated/EasyLoco";
 
-        // Prefixes every asset the build writes. CreateAsset renames the object after its file, so a
-        // generated copy is called "<prefix><template name>" - anything matching a generated asset
-        // by its template's name has to strip this first.
         private const string GeneratedAssetPrefix = "EasyLoco";
 
         private static LocalizedTextDataset Localized => LocalizedTextDataset.primary;
 
-        /// <summary>Per-stance idle build state gathered up front and reused for params + menu.</summary>
         private sealed class StanceBuild
         {
-            // Key names generated assets and blend trees, so it stays ASCII and language-independent
-            // - rebuilding under another language must not orphan the previous run's files.
-            // MenuLabel is the localized text the player reads in the expression menu.
             public readonly string Key;
             public readonly string MenuLabel;
             public readonly List<EasyLoco.IdlePose> Poses;
@@ -49,7 +32,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             public Motion Motion;
             public bool HasMenu;
 
-            /// <summary>Whether this stance replaces the template's built-in idle at all.</summary>
             public bool Overrides => Entries != null && Entries.Count > 0;
 
             public StanceBuild(string key, string menuLabel, List<EasyLoco.IdlePose> poses, string idleTargetName, string paramName)
@@ -62,29 +44,14 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        /// <summary>
-        /// Builds the generated assets, bakes the Modular Avatar setup into a prefab, and installs an
-        /// instance of that prefab onto the avatar. Returns the prefab's asset path. The prefab is
-        /// also reusable by hand - dropping it under another avatar installs the same setup there.
-        /// </summary>
         public static string Build(EasyLoco easyLoco)
         {
-            if (easyLoco == null)
+            var outputFolder = PrepareOutputFolder(easyLoco);
+            if (outputFolder == null)
             {
                 return null;
             }
 
-            var avatar = easyLoco.Avatar;
-            if (avatar == null)
-            {
-                throw new System.InvalidOperationException("EasyLoco must be on the same GameObject as the VRCAvatarDescriptor.");
-            }
-
-            var outputFolder = GetOutputFolder(avatar);
-            EnsureFolder(outputFolder);
-
-            // Built detached from the hierarchy, so a build that throws part way through cannot
-            // leave a half-configured object parented to the avatar.
             string prefabPath;
             var host = new GameObject(EasyLocoConst.GeneratedObjectName);
             try
@@ -100,16 +67,48 @@ namespace Puetsua.VRCEasyLoco.Editor
             return prefabPath;
         }
 
-        /// <summary>
-        /// Builds the sleeping locomotion - the generated controller carrying whatever clips the
-        /// component overrides, and the prefab that appends it over the avatar's base layer - and
-        /// puts an instance on the avatar next to the descriptor. Returns the prefab's asset path.
-        ///
-        /// Deliberately separate from <see cref="Build"/>: sleeping is the one part that installs as
-        /// a self-contained prefab, so it is appended on demand rather than baked into every build.
-        /// The prefab can equally be dragged onto another avatar.
-        /// </summary>
         public static string BuildSleepLocomotion(EasyLoco easyLoco)
+        {
+            var outputFolder = PrepareOutputFolder(easyLoco);
+            if (outputFolder == null)
+            {
+                return null;
+            }
+
+            // MA silently drops a menu installer whose target is not on the avatar. Nest under the
+            // host only when the main EasyLoco menu is actually installed there.
+            var host = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
+            var parent = host != null ? host : easyLoco.transform;
+
+            var controller = BuildSleepController(easyLoco, outputFolder);
+            var prefabPath = BuildSleepPrefab(controller, outputFolder, nestUnderMainMenu: host != null);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            var misplaced = FindSleepLocomotion(easyLoco);
+            if (misplaced != null && misplaced.parent != parent)
+            {
+                Undo.DestroyObjectImmediate(misplaced.gameObject);
+            }
+
+            InstallPrefabInstance(parent, EasyLocoConst.SleepObjectName, prefabPath, "Build EasyLoco Sleep Locomotion");
+            return prefabPath;
+        }
+
+        private static Transform FindSleepLocomotion(EasyLoco easyLoco)
+        {
+            var host = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
+            var nested = host != null ? host.Find(EasyLocoConst.SleepObjectName) : null;
+            return nested != null ? nested : easyLoco.transform.Find(EasyLocoConst.SleepObjectName);
+        }
+
+        public static bool HasSleepLocomotion(EasyLoco easyLoco)
+        {
+            return easyLoco != null && FindSleepLocomotion(easyLoco) != null;
+        }
+
+        private static string PrepareOutputFolder(EasyLoco easyLoco)
         {
             if (easyLoco == null)
             {
@@ -124,55 +123,9 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             var outputFolder = GetOutputFolder(avatar);
             EnsureFolder(outputFolder);
-
-            // One condition decides both where the object goes and where its menu entry goes, which
-            // is what keeps the two consistent: inside the host means the EasyLoco menu is installed
-            // and the Sleep entry can nest under it; loose on the avatar means it is not, and the
-            // entry has to go to the root menu instead. Installed against a target that is not in
-            // the avatar's menu, Modular Avatar drops the installer without a word and sleeping ends
-            // up with no toggles at all.
-            var host = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
-            var parent = host != null ? host : easyLoco.transform;
-
-            var controller = BuildSleepController(easyLoco, outputFolder);
-            var prefabPath = BuildSleepPrefab(controller, outputFolder, nestUnderMainMenu: host != null);
-
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-
-            // Running the main build after installing sleeping moves where it belongs, so a copy
-            // left in the other place has to go or the avatar would carry two.
-            var misplaced = FindSleepLocomotion(easyLoco);
-            if (misplaced != null && misplaced.parent != parent)
-            {
-                Undo.DestroyObjectImmediate(misplaced.gameObject);
-            }
-
-            InstallPrefabInstance(parent, EasyLocoConst.SleepObjectName, prefabPath, "Build EasyLoco Sleep Locomotion");
-            return prefabPath;
+            return outputFolder;
         }
 
-        // Looked for in both places: sleeping sits inside the generated host when there is one and
-        // beside the descriptor when there is not, and the host can appear or disappear between
-        // installing sleeping and taking it off again.
-        private static Transform FindSleepLocomotion(EasyLoco easyLoco)
-        {
-            var host = easyLoco.transform.Find(EasyLocoConst.GeneratedObjectName);
-            var nested = host != null ? host.Find(EasyLocoConst.SleepObjectName) : null;
-            return nested != null ? nested : easyLoco.transform.Find(EasyLocoConst.SleepObjectName);
-        }
-
-        /// <summary>Whether the sleeping module is currently installed on this avatar.</summary>
-        public static bool HasSleepLocomotion(EasyLoco easyLoco)
-        {
-            return easyLoco != null && FindSleepLocomotion(easyLoco) != null;
-        }
-
-        /// <summary>
-        /// Takes the sleeping module back off the avatar. The generated assets stay where they are:
-        /// the folder is disposable, nothing else points at them, and leaving them means putting
-        /// sleeping back costs no rebuild if the clips have not changed.
-        /// </summary>
         public static bool RemoveSleepLocomotion(EasyLoco easyLoco)
         {
             if (easyLoco == null)
@@ -190,10 +143,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return true;
         }
 
-        // Re-instancing on every build would discard the user's placement of an existing instance for
-        // no reason: saving the prefab already updated it in place. Anything else living under the
-        // expected name - a plain object from an older build, or an instance built for a different
-        // avatar - is replaced.
         private static void InstallPrefabInstance(Transform parent, string objectName, string prefabPath, string undoLabel)
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
@@ -237,18 +186,12 @@ namespace Puetsua.VRCEasyLoco.Editor
 
             var afkOverrides = BuildAfkOverrides(easyLoco);
 
-            // Checked before a single asset is written. Everything below this line is destructive:
-            // BuildController deletes the previous generated controller and copies a fresh one,
-            // which mints a new GUID, and the avatar's installed prefab only catches up when the
-            // build reaches SaveAsPrefabAsset. Throwing after that point would leave a working
-            // avatar pointing at a controller that no longer exists - so a template that stopped
-            // carrying a name this package writes into has to fail here, with nothing touched yet.
-            EnsureTemplateCarriesMotions(BaseTemplatePath, stances.Where(stance => stance.Overrides).Select(stance => stance.IdleTargetName),
+            // Fail before writing: BuildController deletes the previous controller (new GUID) and
+            // the installed prefab only catches up at SaveAsPrefabAsset.
+            EnsureTemplateCarriesMotions(EasyLocoConst.BaseTemplatePath, stances.Where(stance => stance.Overrides).Select(stance => stance.IdleTargetName),
                 EasyLocoConst.DesktopLocomotionStateMachine);
-            EnsureTemplateCarriesStates(ActionTemplatePath, afkOverrides.Keys);
+            EnsureTemplateCarriesStates(EasyLocoConst.ActionTemplatePath, afkOverrides.Keys);
 
-            // Build each stance's idle motion: null (keep built-in), a single override clip, or a
-            // selector blend tree when more than one pose is registered.
             var baseReplacements = new Dictionary<string, Motion>();
             foreach (var stance in stances)
             {
@@ -259,11 +202,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                 }
             }
 
-            // Always generate copies of the templates so the avatar merges the generated
-            // controllers, never the shared template assets (which a user could edit by accident).
-            // Scoped to the desktop branch: the VR stances play the same clips under the same names
-            // and must keep the built-in poses (see DesktopLocomotionStateMachine).
-            var baseController = (AnimatorController)BuildController(BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements,
+            var baseController = (AnimatorController)BuildController(EasyLocoConst.BaseTemplatePath, outputFolder, "EasyLocoBase.controller", baseReplacements,
                 EasyLocoConst.DesktopLocomotionStateMachine);
             foreach (var stance in stances)
             {
@@ -275,23 +214,17 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(baseController);
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, baseController, MergeAnimatorMode.Replace);
 
-            var actionController = (AnimatorController)BuildController(ActionTemplatePath, outputFolder, "EasyLocoAction.controller", new Dictionary<string, Motion>());
+            var actionController = (AnimatorController)BuildController(EasyLocoConst.ActionTemplatePath, outputFolder, "EasyLocoAction.controller", new Dictionary<string, Motion>());
             ApplyStateMotionOverrides(actionController, new MotionReplacements(afkOverrides));
             EditorUtility.SetDirty(actionController);
             EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Action, actionController, MergeAnimatorMode.Replace);
 
-            // The Action layer is driven by VRCEmote, exposed through the EasyLoco expression menu.
             EnsureEmoteParameter(host);
 
-            // Localised copies of the EasyLoco entry/main/action menus. The shared assets carry the
-            // in-game labels in English, so cloning them here lets "Action", "Default Standing" and
-            // "Default Sitting" follow the active language at build time. The entry menu is what the
-            // host appends to the avatar's root menu; the main menu is where the idle poses nest.
             var mainMenu = GetOrCreateLocalizedMainMenu(outputFolder);
             var entryMenu = GetOrCreateLocalizedEntry(outputFolder, mainMenu);
             EnsureMenuInstaller(host, entryMenu);
 
-            // Idle-pose selection menu + its synced parameters (only for stances with >1 pose).
             BuildIdlePoseMenu(host, stances, outputFolder, mainMenu);
             foreach (var stance in stances)
             {
@@ -302,8 +235,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             var prefabPath = outputFolder + "/" + EasyLocoConst.GeneratedObjectName + ".prefab";
-            // Overwrites in place so the asset GUID survives. Avatars already holding an instance of
-            // this prefab pick the rebuild up automatically instead of losing the reference.
             PrefabUtility.SaveAsPrefabAsset(host, prefabPath, out var saved);
             if (!saved)
             {
@@ -316,31 +247,18 @@ namespace Puetsua.VRCEasyLoco.Editor
             return prefabPath;
         }
 
-        // Sleep clips live at the leaves of the DefaultSleepingFacing* trees, one per sleeping state.
-        // Registering them here lets ReplaceMotion's existing clone path rebuild those trees for this
-        // avatar, so the generated controller carries whatever the component overrides.
         private static AnimatorController BuildSleepController(EasyLoco easyLoco, string outputFolder)
         {
-            // Same pre-flight as the main build, for the same reason: everything after it writes,
-            // and the controller copy mints a new GUID that only the sleep prefab's save catches up
-            // with.
-            EnsureTemplateCarriesMotions(SleepTemplatePath, SleepTargets(easyLoco.sleep), null);
+            EnsureTemplateCarriesMotions(EasyLocoConst.SleepTemplatePath, SleepTargets(easyLoco.sleep), null);
 
             var replacements = new Dictionary<string, Motion>();
             AddSleepReplacements(replacements, easyLoco.sleep, outputFolder);
 
-            var controller = (AnimatorController)BuildController(SleepTemplatePath, outputFolder, "EasyLocoSleep.controller", replacements, isSleepBuild: true);
+            var controller = (AnimatorController)BuildController(EasyLocoConst.SleepTemplatePath, outputFolder, "EasyLocoSleep.controller", replacements, isSleepBuild: true);
             EditorUtility.SetDirty(controller);
             return controller;
         }
 
-        // The package prefab already carries everything about sleeping that does not depend on the
-        // avatar - the contact rig, the two toggles' parameters, and the Sleep sub-menu installer.
-        // Only the merged animator is avatar-specific, so the per-avatar copy is that prefab with
-        // its animator reference repointed at the generated controller.
-        //
-        // Built detached and saved before it is instantiated, the same as the outer host: a save
-        // that throws cannot leave a half-configured object under the avatar.
         private static string BuildSleepPrefab(AnimatorController controller, string outputFolder, bool nestUnderMainMenu)
         {
             var source = AssetDatabase.LoadAssetAtPath<GameObject>(EasyLocoConst.SleepPrefabPath);
@@ -355,17 +273,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             {
                 host.name = EasyLocoConst.SleepObjectName;
 
-                // Appended, not Replace: the base locomotion controller already claimed the Base
-                // layer, and these layers only override it while the avatar is actually asleep.
                 EnsureMergeAnimator(host, VRCAvatarDescriptor.AnimLayerType.Base, controller, MergeAnimatorMode.Append);
 
                 var installer = host.GetComponent<ModularAvatarMenuInstaller>();
                 if (installer != null)
                 {
-                    // The sleep menu is now an MA Menu Item hierarchy under the MenuGroup on this
-                    // prefab. Leaving menuToAppend null makes the installer source from that
-                    // MenuGroup. The install target is the localised main menu when the main prefab
-                    // is present, otherwise the avatar's root expression menu.
                     installer.menuToAppend = null;
                     installer.installTargetMenu = nestUnderMainMenu ? GetOrCreateLocalizedMainMenu(outputFolder) : null;
                     EditorUtility.SetDirty(installer);
@@ -387,10 +299,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return prefabPath;
         }
 
-        // Walks the MA Menu Item hierarchy under the sleep prefab's MenuGroup and writes the
-        // active language labels onto each control. The source prefab keeps the controls' names
-        // blank so GameObject names can serve as stable keys, while the in-game labels follow the
-        // language used at build time.
         private static void LocalizeSleepMenuItems(GameObject host)
         {
             var menuGroup = host.GetComponent<ModularAvatarMenuGroup>();
@@ -434,11 +342,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        // True when the control's sub-parameters drive the given parameter. The adjust-height radial
-        // carries EL/Height as a sub-parameter (its main control parameter is empty), so this,
-        // rather than the primary parameter, is what picks it out. The enable-height toggle also
-        // lists EL/Height as a sub-parameter, but its primary parameter is EL/EnableHeight, so that
-        // branch runs first and claims it.
         private static bool HasSubParameter(VRCExpressionsMenu.Control control, string parameterName)
         {
             if (control.subParameters == null)
@@ -457,10 +360,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        // Which poses this stance actually contributes, and therefore whether it replaces the
-        // template's built-in idle at all. Kept apart from BuildIdleSelector because it writes
-        // nothing: the build has to know what it is going to look for in the templates before it
-        // starts writing assets (see the pre-flight in BuildHost).
         private static void SelectIdleEntries(StanceBuild stance)
         {
             stance.Entries = (stance.Poses ?? new List<EasyLoco.IdlePose>())
@@ -474,13 +373,13 @@ namespace Puetsua.VRCEasyLoco.Editor
         {
             if (stance.Entries.Count == 0)
             {
-                stance.Motion = null; // keep the template's built-in idle
+                stance.Motion = null;
                 return;
             }
 
             if (stance.Entries.Count == 1)
             {
-                stance.Motion = stance.Entries[0].clip; // single override, no selector/menu
+                stance.Motion = stance.Entries[0].clip;
                 return;
             }
 
@@ -516,10 +415,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             stance.Motion = tree;
         }
 
-        // The pre-flight: does the template still carry every name the build is about to write into?
-        // Read-only, and run before anything is generated, so a template that renamed one of them
-        // fails while the avatar's previous build is still whole. The walk after the copy stays as
-        // well - it is tied to what was actually swapped, where this one only asks what is reachable.
         private static void EnsureTemplateCarriesMotions(string sourcePath, IEnumerable<string> names, string scopeStateMachineName)
         {
             var expected = ExpectedNames(names);
@@ -557,8 +452,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             expected.ThrowIfUnmatched("state", sourcePath);
         }
 
-        // The pre-flight has no motions to put anywhere - it only cares about the names - but it
-        // reports through the same ledger so a rename reads identically wherever it is caught.
         private static MotionReplacements ExpectedNames(IEnumerable<string> names)
         {
             return new MotionReplacements(names.Distinct().ToDictionary(name => name, name => (Motion)null));
@@ -585,10 +478,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        // Leaves only, because leaves are all the replacement walk ever matches: a blend tree is
-        // recursed into, never swapped by its own name. Collecting tree names here would let a key
-        // naming one pass the pre-flight and then fail after the copy, which is the one outcome
-        // this check exists to prevent.
         private static void CollectMotionNames(Motion motion, HashSet<string> into)
         {
             if (motion == null)
@@ -633,8 +522,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return template;
         }
 
-        // scopeStateMachineName limits the replacement to the state machines of that name; null
-        // covers the whole controller.
         private static RuntimeAnimatorController BuildController(string sourcePath, string outputFolder, string fileName, IReadOnlyDictionary<string, Motion> replacements,
             string scopeStateMachineName = null, bool isSleepBuild = false)
         {
@@ -657,16 +544,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return controller;
         }
 
-        // Which sleeping slots this component actually overrides. Pure, and separate from producing
-        // the clips for them, because the build has to know the names before it writes anything.
-        //
-        // A clip equal to the built-in is not an override: registering it would force a needless
-        // clone of the whole sleeping tree for an avatar that never customised anything.
-        //
-        // The on-side pose fans out to one placeholder per tree. Left alone, the placeholders play
-        // as authored and nothing is generated. Overridden, each placeholder slot is listed here and
-        // filled below by a copy of the user's pose wearing that placeholder's root-transform
-        // settings, so the slot keeps its yaw without the builder knowing what any slot's yaw is.
         private static List<string> SleepTargets(EasyLoco.SleepSet sleep)
         {
             var targets = new List<string>();
@@ -726,27 +603,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             return clip != null && clip != AssetDatabase.LoadAssetAtPath<AnimationClip>(builtInPath);
         }
 
-        // The user's pose, wearing the placeholder's root-transform settings. Only that group is
-        // taken across: it is what makes a slot a slot (its yaw above all), while loop and additive
-        // settings belong to whoever authored the pose.
         private static AnimationClip CreateSideClipForSlot(AnimationClip sideClip, AnimationClip placeholder, string outputFolder)
         {
-            var slot = AnimationUtility.GetAnimationClipSettings(placeholder);
             var clip = Object.Instantiate(sideClip);
+            CopyRootTransformSettings(placeholder, clip);
 
-            var settings = AnimationUtility.GetAnimationClipSettings(clip);
-            settings.orientationOffsetY = slot.orientationOffsetY;
-            settings.level = slot.level;
-            settings.cycleOffset = slot.cycleOffset;
-            settings.keepOriginalOrientation = slot.keepOriginalOrientation;
-            settings.keepOriginalPositionY = slot.keepOriginalPositionY;
-            settings.keepOriginalPositionXZ = slot.keepOriginalPositionXZ;
-            settings.heightFromFeet = slot.heightFromFeet;
-            settings.mirror = slot.mirror;
-            AnimationUtility.SetAnimationClipSettings(clip, settings);
-
-            // Persist as the slot's generated leaf (ELSleepSideFacingUp.anim), not EasyLoco* -
-            // DuplicateSleepTreeLeaves would otherwise write EL* and leave this file unreferenced.
             var path = outputFolder + "/" + EasyLocoConst.GeneratedSleepClipName(placeholder.name, is5m: false) + ".anim";
             var persisted = GetOrCreateClipAssetInPlace(path, clip, is5m: false);
             if (persisted != clip)
@@ -755,6 +616,21 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             return persisted;
+        }
+
+        private static void CopyRootTransformSettings(AnimationClip from, AnimationClip to)
+        {
+            var slot = AnimationUtility.GetAnimationClipSettings(from);
+            var settings = AnimationUtility.GetAnimationClipSettings(to);
+            settings.orientationOffsetY = slot.orientationOffsetY;
+            settings.level = slot.level;
+            settings.cycleOffset = slot.cycleOffset;
+            settings.keepOriginalOrientation = slot.keepOriginalOrientation;
+            settings.keepOriginalPositionY = slot.keepOriginalPositionY;
+            settings.keepOriginalPositionXZ = slot.keepOriginalPositionXZ;
+            settings.heightFromFeet = slot.heightFromFeet;
+            settings.mirror = slot.mirror;
+            AnimationUtility.SetAnimationClipSettings(to, settings);
         }
 
         private static Dictionary<string, Motion> BuildAfkOverrides(EasyLoco easyLoco)
@@ -766,8 +642,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return overrides;
         }
 
-        // The AFK counterpart of ReplaceMotions: same ledger, but the names are states rather than
-        // motions - the AFK clips are the whole motion of a state, so there is no tree to walk into.
         internal static void ApplyStateMotionOverrides(AnimatorController controller, MotionReplacements overrides)
         {
             if (controller == null || overrides == null || overrides.IsEmpty)
@@ -808,8 +682,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             foreach (var childState in stateMachine.states)
             {
                 var state = childState.state;
-                // The lookup comes first so a state already playing the user's clip still counts as
-                // found - it is the name that has to exist, not the change.
                 if (overrides.TryGet(state.name, out var clip) && state.motion != clip)
                 {
                     state.motion = clip;
@@ -823,10 +695,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        // Must be Float, not Int: the idle selectors are Simple1D blend trees, and Unity blend trees
-        // read their blend parameter as a float. An Int parameter's float value is always 0
-        // (int/float storage is separate), so an Int here would freeze every selector on child 0 and
-        // the menu toggles would appear to do nothing.
+        // Unity blend trees read the float slot. An Int of the same name stays 0 and freezes child 0.
         private static void EnsureFloatParameter(AnimatorController controller, string name)
         {
             if (controller.parameters.Any(parameter => parameter.name == name))
@@ -837,15 +706,13 @@ namespace Puetsua.VRCEasyLoco.Editor
             controller.AddParameter(name, AnimatorControllerParameterType.Float);
         }
 
-        internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName, bool isSleepBuild = false, Dictionary<(string slot, bool is5m), AnimationClip> clipCache = null)
+        internal static void ReplaceMotions(AnimatorController controller, MotionReplacements replacements, string outputFolder, string scopeStateMachineName, bool isSleepBuild = false)
         {
             if (controller == null || replacements == null)
             {
                 return;
             }
 
-            // The sleep build may have no named replacements (user kept default clips), but still
-            // needs to clone shared DefaultSleeping* trees and duplicate their leaves.
             if (replacements.IsEmpty && !isSleepBuild)
             {
                 return;
@@ -854,18 +721,12 @@ namespace Puetsua.VRCEasyLoco.Editor
             var roots = CollectReplacementRoots(controller, scopeStateMachineName);
             var controllerPath = AssetDatabase.GetAssetPath(controller);
             var clones = new Dictionary<BlendTree, BlendTree>();
-            // One cache for the whole sleep build, shared across every CloneBlendTree: sibling trees
-            // that reference the same leaf clip must resolve to the same ELSleep duplicate, or each
-            // clone would write over the other's file and orphan it.
-            clipCache ??= new Dictionary<(string slot, bool is5m), AnimationClip>();
+            var clipCache = new Dictionary<(string slot, bool is5m), AnimationClip>();
             foreach (var root in roots)
             {
                 ReplaceMotions(root, replacements, outputFolder, controllerPath, clones, clipCache, isSleepBuild);
             }
 
-            // The pre-flight already asked the template this, before anything was written. This one
-            // is tied to the swaps that actually happened, so the two disagreeing is itself worth a
-            // failed build.
             replacements.ThrowIfUnmatched("motion", Scoped(Describe(controller), scopeStateMachineName));
         }
 
@@ -880,18 +741,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return string.IsNullOrEmpty(scopeStateMachineName) ? where : $"\"{scopeStateMachineName}\" in {where}";
         }
 
-        // Where the replacement is allowed to walk. An unscoped build starts at every layer; a
-        // scoped one starts at the named state machines only.
-        //
-        // A scope that matches nothing throws rather than falling back to the whole controller: the
-        // template and this name ship together, so a miss means someone renamed the state machine,
-        // and the quiet failure would be the overrides leaking into the branch the scope exists to
-        // protect - a build that looks fine and only shows up in VR.
-        //
-        // Nothing to replace never reaches here, by the early return above. That is on purpose: an
-        // avatar with no overrides has nothing to leak, and failing its build over a branch someone
-        // renamed in their own copy of the template would be a false alarm. The shipped template's
-        // names are pinned by the tests instead.
         private static List<AnimatorStateMachine> CollectReplacementRoots(AnimatorController controller, string scopeStateMachineName)
         {
             var roots = new List<AnimatorStateMachine>();
@@ -917,8 +766,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return roots;
         }
 
-        // A match is not descended into: the caller walks all of it anyway, and a nested state
-        // machine of the same name would then be visited twice.
         private static void CollectStateMachinesNamed(AnimatorStateMachine stateMachine, string name, List<AnimatorStateMachine> into)
         {
             if (stateMachine == null)
@@ -938,10 +785,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        // The clone cache spans the whole controller: nothing stops one shared tree from being the
-        // motion of several states, and cloning it per state would have each clone delete the asset
-        // the previous state was pointed at, leaving that state with a missing motion. The clone
-        // path is deterministic, so the cache is what keeps that safe.
         private static void ReplaceMotions(AnimatorStateMachine stateMachine, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(string slot, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
         {
             foreach (var childState in stateMachine.states)
@@ -977,12 +820,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                     return blendTree;
                 }
 
-                // The Default* locomotion blend trees live as shared package assets. Mutating them
-                // in place would corrupt the package for every avatar, so clone the whole tree into
-                // this avatar's generated folder and swap the idle clip inside the copy instead.
-                var motionPath = AssetDatabase.GetAssetPath(blendTree);
-                var isSharedAsset = !string.IsNullOrEmpty(motionPath) && motionPath != controllerPath;
-                if (isSharedAsset)
+                if (IsSharedPackageAsset(blendTree, controllerPath))
                 {
                     if (!clones.TryGetValue(blendTree, out var clone))
                     {
@@ -993,13 +831,18 @@ namespace Puetsua.VRCEasyLoco.Editor
                     return clone;
                 }
 
-                // Blend trees embedded inside the copied controller are owned by it and safe to edit.
                 ReplaceBlendTreeMotionsInPlace(blendTree, replacements, outputFolder, controllerPath, clones, clipCache, isSleepBuild);
 
                 return blendTree;
             }
 
             return replacements.TryGet(motion.name, out var replacement) ? replacement : motion;
+        }
+
+        private static bool IsSharedPackageAsset(Motion motion, string controllerPath)
+        {
+            var motionPath = AssetDatabase.GetAssetPath(motion);
+            return !string.IsNullOrEmpty(motionPath) && motionPath != controllerPath;
         }
 
         private static void ReplaceBlendTreeMotionsInPlace(BlendTree blendTree, MotionReplacements replacements, string outputFolder, string controllerPath, Dictionary<BlendTree, BlendTree> clones, Dictionary<(string slot, bool is5m), AnimationClip> clipCache, bool isSleepBuild = false)
@@ -1037,7 +880,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                         return true;
                     }
                 }
-                else if (motion != null && replacements.Contains(motion.name))
+                else if (motion != null && replacements.IsReplacementTarget(motion.name))
                 {
                     return true;
                 }
@@ -1046,11 +889,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        // True if this subtree is a sleep tree, is itself a <name>5m height tree, or contains either
-        // somewhere underneath. The sleep build keys its whole walk - which shared trees to clone
-        // and which leaves to duplicate / offset - off this single predicate, so a <name>5m tree
-        // that is not a DefaultSleeping* asset (e.g. a user-made height blender) is still cloned
-        // and offset rather than silently skipped.
         private static bool IsOrContainsSleepBlendTree(BlendTree blendTree)
         {
             if (IsSleepBlendTree(blendTree) || IsHeightBlendTree(blendTree))
@@ -1069,9 +907,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        // A <name>5m tree carries the height-offset variant of a sleep pose: its leaves gain +5 on
-        // RootT.y when duplicated. Named this way so the sleep build recognises arbitrary "5m"
-        // trees and not just the DefaultSleeping* ones shipped in the package.
         private static bool IsHeightBlendTree(BlendTree blendTree)
         {
             return blendTree.name != null && blendTree.name.EndsWith("5m");
@@ -1082,17 +917,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             return blendTree.name != null && blendTree.name.StartsWith("DefaultSleeping");
         }
 
-        // For the sleep build only. Duplicates every leaf AnimationClip inside a sleep blend tree
-        // so the generated controller does not depend on shared package assets. Non-5m trees get a
-        // plain copy; 5m trees get a copy with +5 added to RootT.y. User overrides have already
-        // been applied by the time this runs, so duplicated clips derive from the EasyLoco
-        // configuration. Uses a cache so the same source clip produces exactly one duplicate per
-        // variant (plain / 5m) regardless of how many trees reference it.
         private static void DuplicateSleepTreeLeaves(BlendTree blendTree, string outputFolder, Dictionary<(string slot, bool is5m), AnimationClip> cache, MotionReplacements replacements)
         {
             var children = blendTree.children;
             var changed = false;
-            var is5m = blendTree.name != null && blendTree.name.EndsWith("5m");
+            var is5m = IsHeightBlendTree(blendTree);
 
             for (var i = 0; i < children.Length; i++)
             {
@@ -1124,17 +953,8 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
         }
 
-        private const float HeightOffsetMeters = 5f;
+        private const float HeightOffsetMeters = EasyLocoConst.EyeHeightMetersMax;
 
-        // Returns the avatar's owned copy of a sleep clip, creating EL<Slot>[5m].anim the first
-        // time that EasyLoco slot is seen and reusing that same asset on every later reference.
-        // Named from the slot (SleepUp, SleepSideFacingUpFeetLock, ...) rather than the source
-        // clip, so a user's "MyNap.anim" in the Up slot still writes ELSleepUp.anim.
-        //
-        //   * The cache is owned by the whole build (created in ReplaceMotions) and keyed by slot,
-        //     so sibling trees that share one leaf resolve to the same generated asset.
-        //   * A generated clip that already exists is overwritten in place rather than deleted and
-        //     recreated, so its GUID survives a rebuild.
         private static AnimationClip GetOrCreateSleepDuplicateClip(AnimationClip source, bool is5m, string outputFolder, Dictionary<(string slot, bool is5m), AnimationClip> cache, MotionReplacements replacements)
         {
             if (source == null)
@@ -1155,9 +975,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return clip;
         }
 
-        // The EasyLoco sleep slot this clip belongs to. Built-in package clips and side-slot
-        // copies are already named SleepUp / SleepSideFacingUp / ...; a user override keeps its
-        // own name, so the replacement ledger is what maps that instance back to the slot.
         internal static string SleepSlotName(AnimationClip clip, MotionReplacements replacements)
         {
             if (clip != null && replacements != null && replacements.TryGetKey(clip, out var key)
@@ -1189,9 +1006,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        // Creates the clip asset at outputPath if it is missing, otherwise reloads the one that is
-        // there and copies the source's serialized data into it - keeping the asset's GUID so
-        // existing references survive. A 5m variant gets +5 added to RootT.y after the copy.
         private static AnimationClip GetOrCreateClipAssetInPlace(string outputPath, AnimationClip source, bool is5m)
         {
             var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(outputPath);
@@ -1214,16 +1028,11 @@ namespace Puetsua.VRCEasyLoco.Editor
                 AssetDatabase.CreateAsset(clip, outputPath);
             }
 
-            // Name the object after the file (ELSleepUp / ELSleepUp5m), not the source clip. Unity
-            // warns when the main object name does not match the filename, and a user's override
-            // must not leak its own name into the generated folder.
             clip.name = Path.GetFileNameWithoutExtension(outputPath);
             EditorUtility.SetDirty(clip);
             return clip;
         }
 
-        // Adds +5 to the humanoid RootT.y curve of the clip. If the clip has no RootT.y curve,
-        // creates one with a constant value of 5.
         private static void AddHeightOffset(AnimationClip clip)
         {
             var binding = new EditorCurveBinding
@@ -1255,13 +1064,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             AnimationUtility.SetEditorCurve(clip, binding, curve);
         }
 
-        // Clones a shared (package-owned) blend tree into this avatar's generated folder. In the
-        // sleep build this is where the leaves are also duplicated - see DuplicateSleepTreeLeaves -
-        // so the generated controller owns plain ELSleep<clip> and height-offset ELSleep<clip>5m
-        // copies instead of pointing back into the package. The clip cache comes from ReplaceMotions
-        // and is shared across every CloneBlendTree in the build, so a source clip that appears in
-        // several sleep trees is duplicated exactly once per variant - and a leaf that is already a
-        // generated asset is overwritten in place (keeping its GUID) rather than rewritten.
         internal static BlendTree CloneBlendTree(BlendTree source, MotionReplacements replacements, string outputFolder, Dictionary<(string slot, bool is5m), AnimationClip> clipCache = null, bool isSleepBuild = false)
         {
             var nested = new List<BlendTree>();
@@ -1273,7 +1075,6 @@ namespace Puetsua.VRCEasyLoco.Editor
                 DuplicateSleepTreeLeaves(root, outputFolder, clipCache, replacements);
             }
 
-            // Deterministic name so rebuilding overwrites the previous clone instead of piling up copies.
             var clonePath = outputFolder + "/" + GeneratedAssetPrefix + SanitizeFileName(source.name) + ".asset";
             if (AssetDatabase.LoadAssetAtPath<Object>(clonePath) != null)
             {
@@ -1296,22 +1097,12 @@ namespace Puetsua.VRCEasyLoco.Editor
             return root;
         }
 
-        // Copied through serialization rather than with Object.Instantiate: every child motion of a
-        // blend tree is serialized as a strong pointer, and Unity's clone path asserts once per
-        // child - "(metaFlags & kStrongPPtrMask) == 0" - so the three Default* idle trees alone
-        // logged 37 of those per build. Nothing else was wrong with Instantiate: its copy is
-        // shallow, the children still pointing at the source's own motions, which is exactly what
-        // the recursion below expects. CopySerialized is shallow in the same way.
-        //
-        // Assigning the public properties one at a time would silence the assert too, but it
-        // silently drops m_NormalizedBlendValues - serialized, yet with no setter to reach it -
-        // along with anything Unity adds to the type later.
+        // CopySerialized, not Instantiate: Unity asserts on strong child PPtrs, and assigning
+        // public properties drops m_NormalizedBlendValues (no setter).
         internal static BlendTree CloneBlendTreeInMemory(BlendTree source, MotionReplacements replacements, List<BlendTree> collected)
         {
             var clone = new BlendTree();
             EditorUtility.CopySerialized(source, clone);
-            // CreateAsset renames the object after its file, and the clone is named for the
-            // template it came from, so the name has to survive the copy verbatim.
             clone.name = source.name;
 
             var children = clone.children;
@@ -1366,14 +1157,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             entry.controls.Add(MakeSubMenu(Localized.menuIdlePoses, root));
             EditorUtility.SetDirty(entry);
 
-            EnsureSubMenuInstaller(host, entry, targetMenu); // nest the idle poses under the localised EasyLocoMain
+            EnsureSubMenuInstaller(host, entry, targetMenu);
         }
 
-        // A synced VRChat Float only carries -1..1, so pose N cannot be selected by its raw index:
-        // anything above 1 clamps down to 1. With three stand poses that made "Wide2" land on the
-        // same value as "Wide1", so the menu drew Wide1 as already active and the next click on it
-        // read as switching it off - back to the default pose. Spreading the poses evenly across
-        // 0..1 keeps every selection inside the syncable range and distinct from its neighbours.
+        // Synced VRChat Floats clamp to -1..1. Raw indices collide (Wide1 and Wide2 both become 1).
         internal static float PoseValue(int index, int count)
         {
             return count <= 1 ? 0f : (float)index / (count - 1);
@@ -1426,7 +1213,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         {
             if (menu == null)
             {
-                throw new FileNotFoundException("EasyLoco expression menu was not found.", EntryMenuPath);
+                throw new FileNotFoundException("EasyLoco expression menu was not found.", EasyLocoConst.EntryMenuPath);
             }
 
             var installer = host.GetComponents<ModularAvatarMenuInstaller>()
@@ -1439,13 +1226,10 @@ namespace Puetsua.VRCEasyLoco.Editor
             }
 
             installer.menuToAppend = menu;
-            installer.installTargetMenu = null; // append to the avatar's root expression menu
+            installer.installTargetMenu = null;
             EditorUtility.SetDirty(installer);
         }
 
-        // Matched on what it appends, not on its target: EasyLocoMain is the target of more than one
-        // sub-menu (the Sleep one, from the sleep prefab), so the target alone does not identify an
-        // installer.
         private static void EnsureSubMenuInstaller(GameObject host, VRCExpressionsMenu menuToAppend, VRCExpressionsMenu targetMenu)
         {
             var installer = host.GetComponents<ModularAvatarMenuInstaller>()
@@ -1461,9 +1245,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(installer);
         }
 
-        // Deep-enough clone of a menu control: a new Control instance so renaming it or rewiring its
-        // subMenu never touches the shared package asset it was copied from. The nested parameter and
-        // arrays are reused by reference - nothing here mutates them.
         private static VRCExpressionsMenu.Control CloneControl(VRCExpressionsMenu.Control source)
         {
             return new VRCExpressionsMenu.Control
@@ -1480,11 +1261,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             };
         }
 
-        // Builds a per-avatar copy of a shared menu asset with control names translated to the active
-        // language and selected subMenu references rewired to other generated copies. The shared menus
-        // carry the in-game labels, so localising them means cloning rather than editing in place -
-        // mutating a shared asset would change it for every avatar. The Parameters reference is
-        // carried across so the copy still validates against the same expression-parameter set.
         private static VRCExpressionsMenu LocalizeMenuCopy(string sourcePath, string outputPath, IDictionary<string, string> nameMap, IDictionary<string, VRCExpressionsMenu> subMenuRewires)
         {
             var source = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(sourcePath);
@@ -1512,11 +1288,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return menu;
         }
 
-        // The localised EasyLocoMain + Action menus. Built once per avatar in its generated folder and
-        // shared by the main build (which appends the idle-pose entry under it) and the sleep build
-        // (which nests the Sleep entry under it when the main prefab is present). "Action",
-        // "Default Standing" and "Default Sitting" follow the active language at build time; the emote
-        // submenus under them stay shared and untranslated, matching VRChat's emote names.
         private static VRCExpressionsMenu GetOrCreateLocalizedMainMenu(string outputFolder)
         {
             var actionMenu = LocalizeMenuCopy(
@@ -1536,12 +1307,10 @@ namespace Puetsua.VRCEasyLoco.Editor
                 new Dictionary<string, VRCExpressionsMenu> { { "Action", actionMenu } });
         }
 
-        // The localised top entry: the "EasyLoco" control (product name, kept as-is, icon preserved by
-        // cloning) rewired to point at the localised main menu.
         private static VRCExpressionsMenu GetOrCreateLocalizedEntry(string outputFolder, VRCExpressionsMenu mainMenu)
         {
             return LocalizeMenuCopy(
-                EntryMenuPath,
+                EasyLocoConst.EntryMenuPath,
                 outputFolder + "/EasyLocoEntry.asset",
                 null,
                 new Dictionary<string, VRCExpressionsMenu> { { "EasyLoco", mainMenu } });
@@ -1587,7 +1356,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             EditorUtility.SetDirty(maParameters);
         }
 
-        // Float to match the animator parameter the idle blend trees read (see EnsureFloatParameter).
         private static void EnsureSyncedFloatParameter(GameObject host, string name)
         {
             var maParameters = GetOrCreateMaParameters(host);

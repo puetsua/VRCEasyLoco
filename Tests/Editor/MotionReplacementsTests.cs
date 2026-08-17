@@ -7,18 +7,9 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// Every key a build hands to a template walk is a claim that the template carries that motion
-    /// or that state. Nothing used to check the claim: rename a clip inside a Default* tree, or an
-    /// AFK state, and the key matched nothing at all - the build wrote a controller that looked
-    /// right and left the user's animation out of it. These pin the ledger that now fails the build
-    /// instead, and the two lookups it draws the line between: taking a replacement counts as
-    /// finding one, looking at a subtree to decide whether to clone it does not.
-    /// </summary>
+    /// <summary>TryGet records a match; IsReplacementTarget does not. Unmatched keys fail the build.</summary>
     public class MotionReplacementsTests
     {
-        // Only the shared-tree case needs the disk: a blend tree has to be an asset of its own for
-        // the builder to treat it as shared and clone it, and the clone is written next to it.
         private const string TempFolderName = "EasyLocoReplacementTests";
         private const string TempFolder = "Assets/" + TempFolderName;
 
@@ -53,10 +44,9 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         {
             var replacements = Replacements(("StandIdle", Clip("UsersOwnIdle")));
 
-            Assert.That(replacements.Contains("StandIdle"), Is.True);
+            Assert.That(replacements.IsReplacementTarget("StandIdle"), Is.True);
             Assert.That(replacements.Unmatched(), Is.EqualTo(new[] { "StandIdle" }),
-                "Contains only decides whether a subtree is worth cloning - counting it would let a "
-                + "tree that was looked at and skipped stand in for a swap that never happened");
+                "IsReplacementTarget must not count as a match");
         }
 
         [Test]
@@ -85,9 +75,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void AMotionFoundOnlyOutsideTheScopeFailsTheBuild()
         {
-            // The nastiest shape of the two bugs combined: the clip is in the controller, just not
-            // in the branch the build is allowed to write to. Walking it would be wrong and doing
-            // nothing would be silent, so the build stops.
             var idle = Clip("IdleStandDefault");
             var controller = new AnimatorController();
             spawned.Add(controller);
@@ -144,9 +131,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void AStateAlreadyPlayingTheUsersClipStillCounts()
         {
-            // Someone can point an AFK slot at the very clip the template already plays. Nothing is
-            // written, but the name was there - reading that as "not found" would fail a build that
-            // is perfectly correct.
             var users = Clip("AfkLoopingDefault");
             var controller = ControllerWith("Afk Stand Looping", users, out _);
 
@@ -157,11 +141,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void ASharedTreeCountsForTheClipInsideIt()
         {
-            // The build's dominant shape, and the only one where the two lookups both matter: a
-            // blend tree that lives in its own asset, played by more than one state. Contains
-            // decides the tree is worth cloning, the clone does the swap and the counting, and the
-            // second state takes the cached clone without walking it again. If those two walks ever
-            // stop agreeing, a correct build starts failing with "has no motion named ...".
             var tree = TreeAsset("Shared", Clip("IdleStandDefault"), Clip("proxy_walk_forward"));
             var controller = ControllerWith("Standing", tree, out var standing);
             var crouching = controller.layers[0].stateMachine.AddState("Crouching");

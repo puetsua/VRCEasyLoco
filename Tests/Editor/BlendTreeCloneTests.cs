@@ -7,18 +7,7 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// The Default* locomotion blend trees are shared package assets, so a build swaps the avatar's
-    /// idle clip into a copy of one and never into the asset itself. Two things have to hold for
-    /// every copy. The source must come through untouched - writing into it would corrupt the
-    /// package for every avatar built afterwards, not just the one being built. And the copy has to
-    /// be complete: the clone was briefly assembled by assigning the public properties one at a
-    /// time, which silently dropped m_NormalizedBlendValues (serialized, but with no setter to
-    /// reach it) and would drop anything Unity adds to BlendTree later.
-    ///
-    /// The nested sub-tree cases below have no shipping example - all seven Default* trees are
-    /// flat - so that recursion runs for the first time on whatever a user brings.
-    /// </summary>
+    /// <summary>Clones must not mutate the source tree, and every serialized BlendTree field must survive.</summary>
     public class BlendTreeCloneTests
     {
         private const string StandingTreePath =
@@ -29,8 +18,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [TearDown]
         public void TearDown()
         {
-            // BlendTrees that escape teardown linger in the EditMode domain and show up later as
-            // "Cleaning up leaked objects" warnings.
             foreach (var spawn in spawned)
             {
                 Object.DestroyImmediate(spawn);
@@ -61,14 +48,11 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void CloneMatchesTheSourceOnEverySerializedField()
         {
-            // A real shipping tree: 18 children, 2D positions, non-default timeScale and mirror.
             var source = AssetDatabase.LoadAssetAtPath<BlendTree>(StandingTreePath);
             Assume.That(source, Is.Not.Null, $"Standing idle tree not found at {StandingTreePath}");
 
             var clone = CloneOf(source, new Dictionary<string, Motion>());
 
-            // Enumerated rather than spot-checked on purpose: a hand-written list of asserts has the
-            // same blind spot as a hand-written copy - it only covers the fields someone remembered.
             var mismatched = new List<string>();
             var sourceProperty = new SerializedObject(source).GetIterator();
             var cloneProperties = new SerializedObject(clone);
@@ -88,8 +72,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void NormalizedBlendValuesSurvivesTheClone()
         {
-            // Serialized, and the only field on BlendTree with no public setter. It has meaning for
-            // Direct trees only, which is why dropping it went unnoticed until it was looked for.
             var source = Tree("Direct", Child(Clip("A")));
             SetNormalizedBlendValues(source, true);
 
@@ -140,8 +122,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             Assert.That(clonedNested, Is.Not.SameAs(nested),
                 "the copy still points at the package's own sub-tree, so edits inside it escape into the package");
 
-            // CloneBlendTree writes everything in this list into the generated asset bar the root.
-            // A descendant missing from it is never written and resolves to null after a reload.
             Assert.That(collected, Has.Count.EqualTo(2));
             Assert.That(collected, Does.Contain(clone));
             Assert.That(collected, Does.Contain(clonedNested));
@@ -205,9 +185,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         private BlendTree Tree(string name, params ChildMotion[] children)
         {
-            // A fresh BlendTree has automatic thresholds switched on, and assigning children while
-            // it is on redistributes them evenly - so it goes off before the children land, or no
-            // fixture here can express an explicit threshold in the first place.
+            // Unity redistributes child thresholds if this is still true when children are assigned.
             var tree = new BlendTree { name = name, useAutomaticThresholds = false };
             spawned.Add(tree);
             tree.children = children;

@@ -11,8 +11,7 @@ namespace Puetsua.VRCEasyLoco
     public class EasyLoco : MonoBehaviour, IEditorOnly
     {
         /// <summary>
-        /// A single selectable idle pose. The first entry of each stance list is the "Default"
-        /// pose: its <see cref="clip"/> may be overridden, but the entry itself cannot be removed.
+        /// One idle pose. Row 0 is the locked Default: its clip may change, the row may not be removed.
         /// </summary>
         [Serializable]
         public class IdlePose
@@ -31,10 +30,6 @@ namespace Puetsua.VRCEasyLoco
             }
         }
 
-        /// <summary>
-        /// The three-stage AFK animation for one stance branch. A null clip keeps the built-in
-        /// Afk*Default clip for that stage.
-        /// </summary>
         [Serializable]
         public class AfkSet
         {
@@ -44,13 +39,8 @@ namespace Puetsua.VRCEasyLoco
         }
 
         /// <summary>
-        /// The sleep poses blended by head orientation while sleep mode is on. A null clip keeps the
-        /// built-in Sleep* clip for that facing.
-        ///
-        /// One clip covers every on-side case. It is authored lying on the left and the blend trees
-        /// play it mirrored for the right; humanoid clips mirror exactly, so there is nothing to
-        /// author or keep in sync twice. The feet-locked branch plays the same pose - if it ever
-        /// needs a feet-planted variant, that is derived at build time, not authored here.
+        /// Sleep poses by head orientation. <see cref="side"/> is authored lying on the left;
+        /// blend trees mirror it for the right.
         /// </summary>
         [Serializable]
         public class SleepSet
@@ -60,26 +50,19 @@ namespace Puetsua.VRCEasyLoco
             public AnimationClip side;
         }
 
-        // Row 0 of each list is the locked Default pose. Additional rows add extra poses that the
-        // avatar can switch between from the EasyLoco expression menu at runtime.
         public List<IdlePose> standPoses = new List<IdlePose>();
         public List<IdlePose> crouchPoses = new List<IdlePose>();
         public List<IdlePose> pronePoses = new List<IdlePose>();
 
-        // Head orientation picks between these while sleeping; contacts on the sleep sensor rig
-        // drive the blend.
         public SleepSet sleep = new SleepSet();
 
-        // AFK is branched by posture at runtime; each stance plays its own entering/looping/exiting.
         public AfkSet standAfk = new AfkSet();
         public AfkSet crouchAfk = new AfkSet();
         public AfkSet proneAfk = new AfkSet();
 
         /// <summary>
-        /// The avatar this component configures, or null when it is not on an avatar. Deliberately
-        /// the same GameObject only - not a search up the hierarchy: the "Add EasyLoco Component"
-        /// menu only ever puts it on the descriptor, and with nested avatars a parent search would
-        /// silently bind to whichever descriptor happened to be closest above it.
+        /// Descriptor on this GameObject, or null. Not a parent search: nested avatars would bind
+        /// the nearest descriptor above, not the one this component was added to.
         /// </summary>
         public VRCAvatarDescriptor Avatar => GetComponent<VRCAvatarDescriptor>();
     }

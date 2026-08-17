@@ -10,19 +10,11 @@ using static VRC.SDKBase.VRC_AvatarParameterDriver;
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
     /// <summary>
-    /// Height lift is two nested 1D trees: EL/Height blends the normal pose into an
-    /// EL/EyeHeightNorm tree that blends that pose into its 5m variant. Lift is then
-    /// Height × EyeHeightNorm (linear on the radial; EyeHeightNorm is the 5 m ceiling). A 2D
-    /// Cartesian tree is not linear on either axis. The EyeHeightNorm layer writes
-    /// EL/EyeHeightNorm every frame from a 1D blend on EyeHeightAsMeters (0 m → 0, 5 m → 1)
-    /// so live scale updates without a Parameter Driver. EL/EnableHeight swaps each sleeping
-    /// pose into a sibling Height state - a bool cannot drive a 1D blend.
+    /// Height lift is nested 1D trees (Height × EyeHeightNorm). EnableHeight is a sibling-state gate,
+    /// not a blend parameter — a bool cannot drive a 1D tree.
     /// </summary>
     public class SleepTemplateHeightTests
     {
-        private const string SleepTemplatePath =
-            EasyLocoConst.PackageRoot + "/Animators/EasyLocoSleepTemplate.controller";
-
         [Test]
         public void HeightBlendTreesAreNested1D()
         {
@@ -241,9 +233,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void UprightWakeDoesNotFireWhileEnableHeightIsOn()
         {
-            // Height lift raises the avatar, which drives Upright above 0.43. That used to exit
-            // SleepMode and release FeetLock. While EnableHeight is on, those wake paths must stay
-            // closed so the user can keep going up without leaving sleep locomotion.
             const float wakeThreshold = 0.43f;
             var wakes = CollectConditionSets()
                 .Where(conditions => conditions.Any(condition =>
@@ -266,10 +255,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void FeetLockCanSwitchWhileSleepingWithEnableHeightOn()
         {
-            // Child states exit their FeetLock / FeetUnlock SM when the toggle flips. The parent
-            // Sleeping machine must catch that exit and send it to the other SM while SleepMode
-            // and EnableHeight are both on - without requiring Upright < 0.43, which is already
-            // false during height lift.
             var sleeping = FindStateMachine("Sleeping");
             Assert.That(sleeping, Is.Not.Null, "Sleeping state machine missing");
 
@@ -295,8 +280,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void EnableHeightOnEntryLandsOnTheHeightSibling()
         {
-            // Switching FeetLock rebuilds the child SM from Entry. If that lands on the unlifted
-            // pose, height pops down for a frame. EnableHeight-on entries must go to * Height.
             foreach (var machineName in new[] { "Sleeping FeetLock", "Sleeping FeetUnlock" })
             {
                 var machine = FindStateMachine(machineName);
@@ -512,8 +495,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         private static AnimatorController LoadController()
         {
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(SleepTemplatePath);
-            Assume.That(controller, Is.Not.Null, $"Sleep template not found at {SleepTemplatePath}");
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(EasyLocoConst.SleepTemplatePath);
+            Assume.That(controller, Is.Not.Null, $"Sleep template not found at {EasyLocoConst.SleepTemplatePath}");
             return controller;
         }
 

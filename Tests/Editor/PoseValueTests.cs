@@ -3,11 +3,7 @@ using NUnit.Framework;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// Menu values for the idle pose selector. A synced VRChat Float only carries -1..1, and this
-    /// regressed once already: raw indices put "Wide2" at the clamped value 1 alongside "Wide1", so
-    /// the menu drew Wide1 as active and clicking it read as switching it off.
-    /// </summary>
+    /// <summary>Idle-pose menu values must stay distinct inside the synced Float range -1..1.</summary>
     public class PoseValueTests
     {
         [Test]

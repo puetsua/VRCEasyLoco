@@ -5,19 +5,8 @@ using UnityEngine;
 namespace Puetsua.VRCEasyLoco.Editor
 {
     /// <summary>
-    /// The name -> motion map a build hands to a template walk, and the ledger of which of those
-    /// names the walk actually found.
-    ///
-    /// Every key is a claim about the template: this motion, or this state, is in there and is the
-    /// thing the user's clip belongs on. Nothing used to check the claim. A renamed clip in a
-    /// Default* tree, a renamed AFK state, and the key simply matched nothing - the build wrote a
-    /// controller that looked right, and the user's animation was quietly not in it. That is the
-    /// same shape of failure as the idle overrides leaking into the VR branch: correct-looking
-    /// output, wrong content, found only in-game.
-    ///
-    /// So the lookup is the ledger. <see cref="TryGet"/> is the only way out of here, which is what
-    /// keeps the record honest - a caller cannot swap a motion in without it being counted, and any
-    /// walk added later is covered without being told to be.
+    /// Name → motion map plus a ledger of which names a template walk actually found.
+    /// Take replacements out through <see cref="TryGet"/> so unmatched keys fail the build.
     /// </summary>
     internal sealed class MotionReplacements
     {
@@ -33,7 +22,6 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         public bool IsEmpty => byName.Count == 0;
 
-        /// <summary>The replacement for <paramref name="name"/>, counting it as found.</summary>
         public bool TryGet(string name, out Motion replacement)
         {
             if (!byName.TryGetValue(name, out replacement))
@@ -45,21 +33,13 @@ namespace Puetsua.VRCEasyLoco.Editor
             return true;
         }
 
-        /// <summary>
-        /// Whether this name is one of the keys, without counting it as found. Only for deciding
-        /// whether a subtree is worth cloning: the swap inside the clone is what does the counting,
-        /// so a tree that gets looked at and skipped never reads as a match.
-        /// </summary>
-        public bool Contains(string name)
+        /// <summary>True if <paramref name="name"/> is a key. Does not count as a match.</summary>
+        public bool IsReplacementTarget(string name)
         {
             return byName.ContainsKey(name);
         }
 
-        /// <summary>
-        /// The slot key this motion was registered under, if any. Used to name generated sleep
-        /// clips after the EasyLoco slot (SleepUp) rather than the user's override clip name.
-        /// Does not count as a match - naming is not a template walk.
-        /// </summary>
+        /// <summary>Slot this motion was registered under. Does not count as a match.</summary>
         public bool TryGetKey(Motion motion, out string key)
         {
             foreach (var entry in byName)
@@ -75,26 +55,11 @@ namespace Puetsua.VRCEasyLoco.Editor
             return false;
         }
 
-        /// <summary>
-        /// The keys no walk ever found, sorted so the build's error message reads the same twice.
-        /// Empty is the expected answer - anything else means the template stopped carrying
-        /// something this package names.
-        /// </summary>
         public IReadOnlyList<string> Unmatched()
         {
             return byName.Keys.Where(name => !matched.Contains(name)).OrderBy(name => name).ToList();
         }
 
-        /// <summary>
-        /// Ends a walk: every key still unaccounted for fails the build, naming them.
-        /// <paramref name="kind"/> is what the names are ("motion", "state"), <paramref name="where"/>
-        /// what was searched.
-        ///
-        /// The throwing lives here rather than at each call site on purpose. Taking replacements out
-        /// through <see cref="TryGet"/> earns the recording for free, but a walk that never asks for
-        /// the verdict records honestly and reports nothing - which is the original bug wearing a
-        /// ledger. One method to end with is a rule that can be followed.
-        /// </summary>
         public void ThrowIfUnmatched(string kind, string where)
         {
             var unmatched = Unmatched();

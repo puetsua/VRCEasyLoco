@@ -4,14 +4,12 @@
     {
         private static readonly LocalizedTextDataset English = new LocalizedTextDataset
         {
-            // Inspector chrome
             labelLanguage = "Language",
             labelVersion = "Version",
             tooltipInfoButton = "Show or hide the description for this section.",
             msgNeedsAvatarDescriptor = "This component must be on the same GameObject as the VRCAvatarDescriptor.",
             buttonBuild = "Build Modular Avatar",
 
-            // Idle animations
             sectionIdle = "Idle Animations (Desktop Mode)",
             helpIdle = "Row 0 is the Default pose (its clip may be overridden but it cannot be removed). " +
                        "Add rows to expose extra poses in the Idle Poses menu.",
@@ -19,7 +17,6 @@
             headerCrouchPoses = "Crouch Idle Poses",
             headerPronePoses = "Prone Idle Poses",
 
-            // AFK animations
             sectionAfk = "AFK Animations",
             helpAfk = "AFK is branched by posture at runtime. Leave a clip empty to keep the built-in " +
                       "default for that stage.",
@@ -30,7 +27,6 @@
             labelAfkLooping = "Looping",
             labelAfkExiting = "Exiting",
 
-            // Sleep animations
             sectionSleep = "Module - Sleep Animations",
             helpSleep = "Installed with the button below. Once it is on the avatar, Build Modular Avatar " +
                         "rebuilds it too, so a main build keeps it in place. Played while Sleep is toggled on " +
@@ -44,13 +40,11 @@
             labelSleepDown = "Facing Down",
             labelSleepSide = "On Side (Left)",
 
-            // Dialogs
             dialogOk = "OK",
             msgBuildSucceeded = "Build succeeded — prefab added to the avatar.",
             msgBuildSucceededWithSleep = "Build succeeded — prefab added to the avatar.\n\nThe Sleep module was already installed, so it was rebuilt too. Its menu entry is nested under the EasyLoco menu.",
             msgSleepInstalled = "Sleeping added to the avatar.",
 
-            // Expression menu
             menuIdlePoses = "Idle Poses",
             menuStandPoses = "Stand",
             menuCrouchPoses = "Crouch",
@@ -73,14 +67,12 @@
 
         private static readonly LocalizedTextDataset ChineseTraditional = new LocalizedTextDataset
         {
-            // Inspector chrome
             labelLanguage = "語言",
             labelVersion = "版本",
             tooltipInfoButton = "顯示或隱藏這個區塊的說明。",
             msgNeedsAvatarDescriptor = "這個元件必須和 VRCAvatarDescriptor 放在同一個 GameObject 上。",
             buttonBuild = "建置 Modular Avatar",
 
-            // Idle animations
             sectionIdle = "靜止動畫 (PC 模式)",
             helpIdle = "第 0 列是預設姿勢（可以換掉動畫，但不能刪除）。" +
                        "新增列可以把額外的姿勢加進靜止姿勢選單。",
@@ -88,7 +80,6 @@
             headerCrouchPoses = "蹲下靜止姿勢",
             headerPronePoses = "趴下靜止姿勢",
 
-            // AFK animations
             sectionAfk = "AFK 動畫",
             helpAfk = "AFK 會依照當下的姿勢分別播放。動畫留空則沿用該段的內建預設。",
             labelStandAfk = "站立 AFK",
@@ -98,7 +89,6 @@
             labelAfkLooping = "循環",
             labelAfkExiting = "結束",
 
-            // Sleep animations
             sectionSleep = "模組 - 睡覺動畫",
             helpSleep = "由下方的按鈕安裝。一旦裝上，「建置 Modular Avatar」也會一併重建，所以重新建置主模組時會把它留在原位。" +
                         "在睡眠模式開啟且 avatar 趴下時播放，並依頭部方向在各姿勢之間混合。" +
@@ -111,13 +101,11 @@
             labelSleepDown = "臉朝下",
             labelSleepSide = "側躺（左）",
 
-            // Dialogs
             dialogOk = "確定",
             msgBuildSucceeded = "建置成功——prefab 已加入 avatar。",
             msgBuildSucceededWithSleep = "建置成功——prefab 已加入 avatar。\n\n睡覺模組已安裝過，所以也一併重建；它的選單項目會放在 EasyLoco 選單底下。",
             msgSleepInstalled = "已將睡覺動作加入 avatar。",
 
-            // Expression menu
             menuIdlePoses = "靜止姿勢",
             menuStandPoses = "站立姿勢",
             menuCrouchPoses = "蹲下姿勢",

@@ -5,12 +5,7 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// The rule under test: a language switch re-labels the poses EasyLoco itself wrote, and leaves
-    /// the user's alone. Row 0 always follows the language because its name field is locked in the
-    /// inspector, and "has the user touched this?" is decided per stance, so customising the stand
-    /// poses must not freeze crouch and prone.
-    /// </summary>
+    /// <summary>Language switch relabels EasyLoco's own pose names and leaves user edits alone.</summary>
     public class IdlePoseSyncTests
     {
         private SupportedLanguage previousLanguage;
@@ -39,7 +34,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             spawned.Clear();
         }
 
-        // Reaches a dataset without leaving the globals changed, and without writing EditorPrefs.
         private static LocalizedTextDataset DatasetFor(SupportedLanguage language)
         {
             var saved = LocalizedTextDataset.Current;
@@ -76,8 +70,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void NamesFromAnotherLanguageStillCountAsPristine()
         {
-            // The point of LocalizedTextDataset.All: a component authored in English must not look
-            // customised just because the user has since switched language.
             var poses = StandIn(English);
 
             Assert.That(EasyLocoEditor.IsPristine(poses, EasyLocoEditor.StandDefaults), Is.True);
@@ -138,8 +130,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void RowZeroNameIsNotPartOfThePristineTest()
         {
-            // That field is disabled in the inspector, so a stray value there cannot be a user edit
-            // and must not be read as one.
             var poses = StandIn(English);
             poses[0].menuName = "something else entirely";
 
@@ -229,8 +219,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void ShorterListThanTheSpecDoesNotOverrun()
         {
-            // rows collapses to 1 when the stance is not pristine, so a single-row list must still be
-            // safe to index.
             var poses = new List<EasyLoco.IdlePose> { new EasyLoco.IdlePose("whatever", null) };
 
             Assert.DoesNotThrow(() =>

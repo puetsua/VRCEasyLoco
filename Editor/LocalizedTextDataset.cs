@@ -4,10 +4,7 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor
 {
-    /// <summary>
-    /// The languages the inspector can be shown in. The enum's numeric values are what gets written
-    /// to the user's editor prefs, so append new languages at the end rather than reordering these.
-    /// </summary>
+    /// <summary>Inspector languages. Prefs store the enum's numeric value — append, do not reorder.</summary>
     internal enum SupportedLanguage
     {
         [InspectorName("English")]
@@ -18,35 +15,17 @@ namespace Puetsua.VRCEasyLoco.Editor
     }
 
     /// <summary>
-    /// Every user-facing string in the inspector, one instance per language. The strings themselves
-    /// live in the .Data.cs half of this partial class; this half holds the field list, the language
-    /// preference, and the switch that picks the active set.
-    ///
-    /// There is no per-key fallback: a language whose dataset misses a field shows null, not English.
-    /// That is deliberate - a blank label is obvious in the editor, where a silent fallback would let
-    /// an untranslated string ship unnoticed. Populate every dataset when adding a field.
+    /// Inspector strings, one instance per language. Missing fields stay blank — there is no English fallback.
     /// </summary>
     internal partial class LocalizedTextDataset
     {
         public static LocalizedTextDataset primary;
 
         /// <summary>
-        /// Every dataset, for recognising a string that was written by an earlier language. A
-        /// component filled in under English carries "Wide1", and that still has to read as an
-        /// untouched EasyLoco default once the user switches to 正體中文 - otherwise the switch
-        /// would mistake its own handiwork for the user's and refuse to update it.
-        ///
-        /// Populated in the static constructor rather than by a field initializer: the datasets live
-        /// in the other half of this partial class, and the order initializers run across the two
-        /// files is not guaranteed. A constructor body runs after all of them. Add new languages
-        /// here as well as to <see cref="SetLanguage"/>.
+        /// Every language dataset. Filled in the static constructor so partial-class field initializers have already run.
         /// </summary>
         public static readonly LocalizedTextDataset[] All;
 
-        /// <summary>
-        /// The language in effect. This, not the saved preference, is what the UI draws from: the
-        /// pref getter reaches the registry on Windows and the inspector asks once per repaint.
-        /// </summary>
         public static SupportedLanguage Current { get; private set; }
 
         static LocalizedTextDataset()
@@ -55,9 +34,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             SetLanguage(LoadLanguage());
         }
 
-        // Per-user, not per-project: which language someone reads the inspector in is a property of
-        // the person, not the avatar project, so it rides along with the rest of EasyLoco's
-        // EditorPrefs state instead of being committed.
         private const string LanguagePrefKey = EasyLocoConst.EditorPrefsPrefix + "Language";
 
         private static SupportedLanguage LoadLanguage()
@@ -71,12 +47,7 @@ namespace Puetsua.VRCEasyLoco.Editor
         }
 
         /// <summary>
-        /// Maps a stored pref value to a language, falling back to English for anything this build
-        /// does not know. Never throws, and that is the point: it feeds the static constructor, and
-        /// an exception there is cached by the runtime as a TypeInitializationException that every
-        /// later access rethrows - one stale pref would leave the whole tool dead for the rest of
-        /// the editor session. Downgrading from a future version with more languages, or a
-        /// hand-edited pref, is exactly how a value with no case arrives here.
+        /// Unknown stored prefs become English. Must not throw: this runs from the static constructor.
         /// </summary>
         internal static SupportedLanguage Sanitize(int stored)
         {
@@ -86,21 +57,18 @@ namespace Puetsua.VRCEasyLoco.Editor
         }
 
         public string
-            // Inspector chrome
             labelLanguage,
             labelVersion,
             tooltipInfoButton,
             msgNeedsAvatarDescriptor,
             buttonBuild,
 
-            // Idle animations
             sectionIdle,
             helpIdle,
             headerStandPoses,
             headerCrouchPoses,
             headerPronePoses,
 
-            // AFK animations
             sectionAfk,
             helpAfk,
             labelStandAfk,
@@ -110,7 +78,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             labelAfkLooping,
             labelAfkExiting,
 
-            // Sleep animations
             sectionSleep,
             helpSleep,
             buttonBuildSleep,
@@ -119,23 +86,15 @@ namespace Puetsua.VRCEasyLoco.Editor
             labelSleepDown,
             labelSleepSide,
 
-            // Dialogs
             dialogOk,
             msgBuildSucceeded,
             msgBuildSucceededWithSleep,
             msgSleepInstalled,
 
-            // Expression menu labels. Unlike everything above these do not just draw in the
-            // inspector - they are baked onto the avatar, so what a player reads in-game is whatever
-            // language was active when the component was filled in and built, not the current one.
-            // The pose names are only ever *defaults*: once written to the component they are the
-            // user's data and switching language leaves them alone.
             menuIdlePoses,
             menuStandPoses,
             menuCrouchPoses,
             menuPronePoses,
-            // The Action and Sleep sub-menus. Like the pose names these are baked onto the avatar at
-            // build time, so they follow whatever language was active when the build ran.
             menuAction,
             menuDefaultStanding,
             menuDefaultSitting,

@@ -9,12 +9,6 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string PackageName = "vrchat.puetsuaworkshop.easyloco";
         public const string DisplayName = "EasyLoco";
 
-        // Read once from package.json and cached. Falls back to "dev" when the file cannot be read
-        // (e.g. the package folder was renamed or the file is missing), so the inspector never
-        // throws over a label. The resolved flag is separate from the value so a failed or empty
-        // read is cached too - without it every repaint would re-read the file and re-log the
-        // exception. Uses JsonUtility rather than Newtonsoft so the package does not have to take a
-        // dependency on com.unity.nuget.newtonsoft-json just to read one field.
         private static string _cachedVersion = "dev";
         private static bool _versionResolved;
 
@@ -27,6 +21,7 @@ namespace Puetsua.VRCEasyLoco.Editor
                     return _cachedVersion;
                 }
 
+                // Cache failures too: without this every inspector repaint re-reads and re-logs.
                 _versionResolved = true;
                 try
                 {
@@ -54,7 +49,7 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         public const string GeneratedObjectName = "GeneratedEasyLocoMA";
 
-        // Namespace for EditorPrefs keys holding per-user inspector state (never project data).
+        // Per-user inspector state. Never commit this prefix into project assets.
         public const string EditorPrefsPrefix = PackageName + ".";
 
         public const string PackageRoot = "Packages/" + PackageName;
@@ -62,70 +57,25 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string IdleAnimationsFolder = AnimationsFolder + "/Idle";
         public const string SleepAnimationsFolder = AnimationsFolder + "/Sleeping";
         public const string AfkAnimationsFolder = AnimationsFolder + "/Afk";
+        public const string AnimatorsFolder = PackageRoot + "/Animators";
+        public const string BaseTemplatePath = AnimatorsFolder + "/EasyLocoBaseTemplate.controller";
+        public const string ActionTemplatePath = AnimatorsFolder + "/EasyLocoActionTemplate.controller";
+        public const string SleepTemplatePath = AnimatorsFolder + "/EasyLocoSleepTemplate.controller";
         public const string MenusFolder = PackageRoot + "/Menus";
         public const string MainMenuPath = MenusFolder + "/EasyLocoMain.asset";
         public const string ActionMenuPath = MenusFolder + "/Action.asset";
+        public const string EntryMenuPath = MenusFolder + "/EasyLocoEntry.asset";
 
-        // Header artwork drawn at the top of the component inspector. Authored at 400x80; the
-        // inspector scales it down to the panel width and never draws it larger than that.
         public const string TexturesFolder = PackageRoot + "/Textures";
         public const string BannerTexturePath = TexturesFolder + "/easylocobanner.png";
 
-        // The whole sleep feature as one droppable unit: the contact rig that reports head
-        // orientation, plus the Modular Avatar components that install sleeping - its parameters,
-        // its sub-menu, and the animator appended over the base locomotion.
-        //
-        // Only the animator is avatar-specific, so the build saves a per-avatar copy of this prefab
-        // with that one reference repointed at the generated controller. That copy is what the sleep
-        // button puts on the avatar - inside the generated host, so everything EasyLoco installs sits
-        // under one object, or beside the descriptor when the avatar has no host yet. It goes on as
-        // an added child of the host instance, which survives rebuilding the host prefab but does not
-        // travel with that prefab: dropping the host on another avatar does not bring sleeping.
-        //
-        // Its Merge Animator carries Layer Priority 100. Being appended only guarantees the sleep
-        // layers land after EasyLoco's own base locomotion (Modular Avatar always merges the Replace
-        // first); among appended layers the order is otherwise hierarchy order, so any other tool
-        // adding a Base layer at the default priority could land after the sleeping pose and
-        // override it. The positive priority puts sleeping last on purpose - it plays an empty clip
-        // whenever the avatar is awake, so sitting on top costs nothing. Anything that genuinely has
-        // to win over the sleeping pose needs a priority above this.
         public const string SleepPrefabPath = PackageRoot + "/Prefabs/EasyLocoSleep.prefab";
         public const string SleepObjectName = "EasyLocoSleep";
 
-        // The two sleep toggles. Both are registered by the Modular Avatar Parameters component on
-        // the sleep prefab, so no code adds them - these names exist to keep the prefab, the menu
-        // assets, and the sleep template describing the same contract.
-        //
-        // Drives the Sleeping state inside the sleep controller's Prone sub-state machine. Set from
-        // the Sleep Loco toggle in the Sleep sub-menu; the state also releases on Upright, so
-        // standing up leaves sleep even while this is still true.
         public const string SleepModeParam = "EL/SleepMode";
-
-        // Drives the FeetLock layer in the sleep controller, locking both feet to the animated pose
-        // (VRC tracking control). Set from the Feet Lock toggle in the Sleep sub-menu; it only
-        // engages while [[SleepModeParam]] is on and Upright is below 0.43 (lying down asleep). The
-        // layer releases when sleep ends, when the toggle is cleared, or when Upright passes 0.43
-        // while [[EnableHeightParam]] is off. Height lift raises the avatar without leaving sleep,
-        // so Upright climbing must not unlock the feet or exit SleepMode while EnableHeight is on.
-        // Switching FeetLock while lifted also stays inside sleep: the parent Sleeping machine
-        // re-enters the other lock SM when SleepMode and EnableHeight are both on, even if Upright
-        // is already above 0.43. The release path's parameter driver still clears FeetLock when
-        // that path does run.
         public const string FeetLockParam = "EL/FeetLock";
-
-        // The height-adjustment feature, driven by an MA Parameters component on the sleep prefab.
-        // EnableHeight is the on/off bool that allows the 5m blend; Height is the radial's 0..1
-        // value. A bool cannot drive a 1D blend tree, so each sleeping pose has a sibling Height
-        // state. That state is two nested 1D trees: Height blends the normal pose into an
-        // EyeHeightNorm tree that blends the same pose into its 5m variant. Lift is then
-        // Height × EyeHeightNorm (linear on the radial; EyeHeightNorm is the 5 m ceiling). A 2D
-        // Cartesian tree is not linear on either axis. The +5 on RootT.y is baked into the 5m
-        // clips by the build, not added live. Height defaults to 0 so a fresh install sits on the
-        // normal pose even if EnableHeight is already on.
         public const string HeightParam = "EL/Height";
         public const string EnableHeightParam = "EL/EnableHeight";
-        // Held true while the Adjust Height radial is open. The PoseSpaceLoopSet layer uses this
-        // (with EnableHeight) to enter VRC pose space so lift does not fight tracking.
         public const string AdjustHeightParam = "EL/AdjustHeight";
         public const string HeightStateSuffix = " Height";
         public const string PoseSpaceLayer = "PoseSpaceLoopSet";
@@ -134,17 +84,11 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string PoseSpaceState = "PoseSpace";
         public const string PoseSpaceRepeatState = "PoseSpaceRepeat";
 
-        // VRChat's built-in eye height in metres. The Action Menu scale dial runs 0.2..5.0; worlds
-        // can push it outside that. The EyeHeightNorm layer writes [[EyeHeightNormParam]] every
-        // frame from a 1D blend on this (0 m → 0, 5 m → 1) so Height lift can use a 0..1 axis
-        // without a Parameter Driver (those only fire on state enter).
         public const string EyeHeightAsMetersParam = "EyeHeightAsMeters";
         public const string EyeHeightNormParam = "EL/EyeHeightNorm";
         public const float EyeHeightMetersMin = 0f;
         public const float EyeHeightMetersMax = 5f;
-        public const float EyeHeightNormMin = 0f;
-        public const float EyeHeightNormMax = 1f;
-        // Typical ~1.25 m avatar (metres / 5) until the Normalize clip writes the live value.
+        // ~1.25 m avatar (metres / 5) until the Normalize clip writes the live value.
         public const float EyeHeightNormDefault = 0.25f;
 
         public const string EyeHeightNormLayer = "EyeHeightNorm";
@@ -152,38 +96,19 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string EyeHeightNormZeroClip = SleepAnimationsFolder + "/EyeHeightNorm0.anim";
         public const string EyeHeightNormOneClip = SleepAnimationsFolder + "/EyeHeightNorm1.anim";
 
-        // Idle-pose selector parameters (one Float per stance, carrying 0..1 - see PoseValue in the
-        // builder). Toggle menu items and the nested idle blend trees both reference these by name.
         public const string IdleStandParam = "EL/IdleStand";
         public const string IdleCrouchParam = "EL/IdleCrouch";
         public const string IdleProneParam = "EL/IdleProne";
 
-        // The base template branches locomotion on VRMode: one sub-state machine per mode, each
-        // carrying its own Standing/Crouching/Prone states over the same Default* blend trees.
-        //
-        // Only the desktop branch takes the idle-pose overrides. In VR the stance pose is what the
-        // IK solver blends the tracked head and hands against, and a pose that moves the hips or
-        // spreads the feet fights it - arms end up short, the avatar leans. So VR stays on the
-        // built-in stance poses, which is why the inspector labels the Idle section "Desktop Mode".
-        // The builder replaces motions by name and both branches play clips of the same name, so
-        // that promise only holds while the replacement is scoped to this state machine.
-        //
-        // Only the desktop name is used by the build - the VR one is here because the two are one
-        // contract with the template, and the tests that pin the branches read both.
+        // Replacement is scoped to the desktop machine. VR stays on built-in poses so IK is not fought.
         public const string DesktopLocomotionStateMachine = "Desktop Locomotion";
         public const string VrLocomotionStateMachine = "VR Locomotion";
 
-        // The idle (velocity-zero) clip embedded at the centre of each Default* locomotion blend
-        // tree. The builder swaps these for the stance's idle selector.
         public const string StandIdleTarget = "IdleStandDefault";
         public const string CrouchIdleTarget = "IdleCrouchDefault";
         public const string ProneIdleTarget = "IdleProneDefault";
-        // The VR crouch tree embeds the dedicated squatting clip instead of the desktop crouch
-        // pose - a tracked crouch is a squat. The builder never replaces VR clips, but the
-        // template contract tests pin this name so a drift shows up in the Test Runner.
         public const string VrCrouchIdleTarget = "IdleCrouchSquatting";
 
-        // Built-in idle clips used to prefill a freshly added component.
         public const string StandDefaultClip = IdleAnimationsFolder + "/IdleStandDefault.anim";
         public const string StandWide1Clip = IdleAnimationsFolder + "/IdleStandWide1.anim";
         public const string StandWide2Clip = IdleAnimationsFolder + "/IdleStandWide2.anim";
@@ -192,24 +117,6 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string ProneDefaultClip = IdleAnimationsFolder + "/IdleProneDefault.anim";
         public const string ProneLyingDownClip = IdleAnimationsFolder + "/IdleProneLyingDown.anim";
 
-        // The sleep pose clips sitting at the leaves of the DefaultSleepingFacing{Up,Down} trees.
-        // Each is the motion of one Sleeping state in the sleep controller, and the states switch on
-        // the facing parameters. Swapping these clips by name lets the existing blend-tree clone
-        // path rebuild those trees with the user's clips.
-        //
-        // The on-side pose sits in every tree twice - once plain, once with the child's Mirror flag
-        // set - so one pose covers both sides. SleepSide lies on the left (right side up, so it
-        // plays at EL/FacingRight) and the clips are humanoid, so Unity mirrors it exactly.
-        //
-        // Each tree holds its own on-side placeholder rather than sharing one clip, because the
-        // slots differ in Root Transform Rotation: the free branch sits halfway between its facing
-        // clips (SleepUp at 0, SleepDown at -180), while the feet-locked branch matches its facing
-        // clip, since Feet Lock puts both feet on Animation and they land where that pose puts them.
-        // Those offsets live in the placeholder assets, not in code - so a placeholder can be
-        // re-yawed, re-posed, or swapped for a new motion in the Inspector and the build follows,
-        // and the tree's own positions and mirror flags are never touched by the builder.
-        //
-        // Every clip file is named after its target, so the built-in paths follow from these names.
         public const string SleepUpTarget = "SleepUp";
         public const string SleepDownTarget = "SleepDown";
         public const string SleepSideFacingUpTarget = "SleepSideFacingUp";
@@ -217,15 +124,10 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string SleepSideFacingUpFeetLockTarget = "SleepSideFacingUpFeetLock";
         public const string SleepSideFacingDownFeetLockTarget = "SleepSideFacingDownFeetLock";
 
-        // Built-in sleep clips used to prefill a freshly added component.
         public const string SleepUpClip = SleepAnimationsFolder + "/" + SleepUpTarget + ".anim";
         public const string SleepDownClip = SleepAnimationsFolder + "/" + SleepDownTarget + ".anim";
-
-        // The reference on-side pose. Not in any tree itself - it is what the placeholders were cut
-        // from, and what the component's On Side slot defaults to.
         public const string SleepSideClip = SleepAnimationsFolder + "/SleepSide.anim";
 
-        // The per-slot placeholders, in the order the builder replaces them.
         public static readonly string[] SleepSideTargets =
         {
             SleepSideFacingUpTarget,
@@ -239,10 +141,6 @@ namespace Puetsua.VRCEasyLoco.Editor
             return SleepAnimationsFolder + "/" + target + ".anim";
         }
 
-        // Generated sleep-clip filenames (and object names) are derived from these slot names, not
-        // from whatever the user named their override clip. A custom "MyNap.anim" in the Up slot
-        // still writes ELSleepUp.anim / ELSleepUp5m.anim so a rebuild overwrites instead of
-        // orphaning, and Unity's object-name-matches-filename warning stays quiet.
         public const string GeneratedSleepClipPrefix = "EL";
 
         public static readonly string[] SleepTargets =
@@ -260,13 +158,7 @@ namespace Puetsua.VRCEasyLoco.Editor
             return GeneratedSleepClipPrefix + slot + (is5m ? "5m" : string.Empty);
         }
 
-        // AFK is branched by posture; each stance state is named "Afk <Stance> <Stage>". The builder
-        // swaps these states' motions with the component's per-stance clips.
         public const string AfkStatePrefix = "Afk ";
-
-        // In the order the builder reads the component's three AFK sets. Named here rather than
-        // written into the state names inline, so the tests that pin the Action template's states
-        // spell them the same way the build does.
         public static readonly string[] AfkStances = { "Stand", "Crouch", "Prone" };
         public static readonly string[] AfkStages = { "Entering", "Looping", "Exiting" };
 
@@ -275,21 +167,8 @@ namespace Puetsua.VRCEasyLoco.Editor
             return AfkStatePrefix + stance + " " + stage;
         }
 
-        // Built-in AFK clips shared as the default for every stance branch.
         public const string AfkEnteringDefaultClip = AfkAnimationsFolder + "/AfkEnteringDefault.anim";
         public const string AfkLoopingDefaultClip = AfkAnimationsFolder + "/AfkLoopingDefault.anim";
         public const string AfkExitingDefaultClip = AfkAnimationsFolder + "/AfkExitingDefault.anim";
-
-        public static readonly string[] LayerNames =
-        {
-            "Base",
-            "Additive",
-            "Gesture",
-            "Action",
-            "FX",
-            "Sitting",
-            "TPose",
-            "IKPose"
-        };
     }
 }

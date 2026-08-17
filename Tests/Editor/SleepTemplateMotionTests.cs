@@ -6,23 +6,9 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// The sleeping locomotion is layered over the avatar's base locomotion as a separate Override
-    /// controller, so its layers sit at weight 1 whenever the avatar is awake. Their default states
-    /// must therefore be true pass-throughs: a state with a null motion in an Override layer at
-    /// weight 1 stomps the locomotion below it (in VRChat the legs lock into a wrong pose and the
-    /// walk animation effectively disappears), whereas a 0-curve clip such as EasyLocoEmpty does
-    /// not. This regressed once when the passthrough states were changed from EasyLocoEmpty to a
-    /// null motion, so this test pins them to the clip.
-    /// </summary>
+    /// <summary>Awake pass-through states must play EasyLocoEmpty. A null motion stomps base locomotion.</summary>
     public class SleepTemplateMotionTests
     {
-        private const string SleepTemplatePath =
-            EasyLocoConst.PackageRoot + "/Animators/EasyLocoSleepTemplate.controller";
-
-        // Crouching (Empty) is the SleepLocomotion layer's default state - always active while
-        // awake - and Tracking/Locked are the FeetLock layer's defaults. A null motion on any of
-        // these stomps the base locomotion every frame.
         private static readonly string[] PassthroughStates =
         {
             "Crouching (Empty)",
@@ -56,8 +42,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         private static List<AnimatorState> FindStatesNamed(string name)
         {
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(SleepTemplatePath);
-            Assume.That(controller, Is.Not.Null, $"Sleep template not found at {SleepTemplatePath}");
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(EasyLocoConst.SleepTemplatePath);
+            Assume.That(controller, Is.Not.Null, $"Sleep template not found at {EasyLocoConst.SleepTemplatePath}");
 
             var found = new List<AnimatorState>();
             foreach (var layer in controller.layers)

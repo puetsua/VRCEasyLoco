@@ -6,18 +6,7 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// The base template branches locomotion on VRMode into two sub-state machines. Each branch
-    /// carries its own Standing, Crouching and Prone states so that desktop idle-pose overrides do
-    /// not bleed into VR locomotion (in VR the stance is what IK blends tracked head and hands
-    /// against, so a replaced pose fights the solver and produces broken proportions).
-    ///
-    /// The builder scopes replacement to DesktopLocomotionStateMachine, but the split was first
-    /// authored by sharing the same BlendTree asset between both branches. That meant any
-    /// modification to the desktop tree (e.g. the builder injecting a pose selector) silently
-    /// rewrote the VR branch too. These tests pin the separation: the VR branch must keep its own
-    /// locomotion trees, and scoped replacement must leave them untouched.
-    /// </summary>
+    /// <summary>VR locomotion trees are separate assets. Desktop idle replacement must not touch them.</summary>
     public class VrLocomotionTests
     {
         private readonly List<Object> spawned = new List<Object>();
@@ -25,8 +14,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [TearDown]
         public void TearDown()
         {
-            // Sub-state machines and states are reachable from the controller, so an earlier
-            // DestroyImmediate can have taken one out already - hence the null check.
             foreach (var spawn in spawned.Where(spawn => spawn != null))
             {
                 Object.DestroyImmediate(spawn);
@@ -90,8 +77,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             foreach (var stance in LocomotionTemplate.Stances)
             {
                 var tree = vr[stance].motion as BlendTree;
-                // These are 2D blend trees: the idle clip sits at the origin (no movement).
-                // Thresholds are serialized in file order, so the lowest one is not the idle slot.
                 var idleChild = tree.children.FirstOrDefault(c =>
                     Mathf.Approximately(c.position.x, 0f) && Mathf.Approximately(c.position.y, 0f));
                 Assert.That(idleChild.motion?.name, Is.EqualTo(idleTargetByStance[stance]),
@@ -145,8 +130,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             Assert.That(vrState.motion, Is.SameAs(idle));
         }
 
-        // A stand-in for the template's shape: one Locomotion layer holding a desktop and a VR
-        // branch whose stances play the very same motion.
         private AnimatorController TwoBranchController(Motion idle, out AnimatorState desktopState, out AnimatorState vrState)
         {
             var controller = new AnimatorController();

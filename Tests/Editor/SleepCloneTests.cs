@@ -6,23 +6,7 @@ using UnityEngine;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// The sleep build turns the shared DefaultSleeping* package trees into per-avatar copies whose
-    /// leaf clips the avatar owns, and when a tree is a &lt;name&gt;5m height tree it makes the leaf
-    /// copy with +5 added to RootT.y. Four times this feature broke by silently re-using or
-    /// re-rooting clips - see the fix history around the sleep clone - so it finally gets tests that
-    /// pin the four behaviours at once:
-    ///
-    ///   * an empty replacement set still clones and duplicates a DefaultSleeping* tree,
-    ///   * each source clip yields exactly one plain and one 5m duplicate,
-    ///   * 5m trees get RootT.y + 5 and non-5m trees do not,
-    ///   * a 5m tree nested anywhere under the root is still offset, and
-    ///   * duplicate names are never doubled (no ELELSleepUp...),
-    ///   * a user override is named from the EasyLoco slot, not the clip file.
-    ///
-    /// The tests exercise CloneBlendTree rather than CloneBlendTreeInMemory because duplication
-    /// deliberately runs on the root clone the way the build calls it, with one per-build cache.
-    /// </summary>
+    /// <summary>Sleep clones own their leaves. 5m trees offset RootT.y; names come from the slot.</summary>
     public class SleepCloneTests
     {
         private readonly List<Object> spawned = new List<Object>();
@@ -34,8 +18,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         {
             _folder = "Assets/__EasyLocoSleepTests_" + System.Guid.NewGuid().ToString("N");
             AssetDatabase.CreateFolder("Assets", System.IO.Path.GetFileName(_folder));
-            // One cache per test, mirroring the build's single per-build cache shared by every
-            // CloneBlendTree call. A test that wants a fresh build resets this.
             _clipCache = new Dictionary<(string, bool), AnimationClip>();
         }
 
@@ -57,9 +39,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void EmptyReplacementsStillCloneAndDuplicateASleepTree()
         {
-            // The whole point of the sleep build's isSleepBuild flag: a user who overrode nothing
-            // still has to end up owning the clip, so the tree must clone and duplicate even though
-            // the replacement ledger is empty.
             var leaf = Clip("SleepUp", 0.5f);
             var source = Tree("DefaultSleepingFacingUp", Child(leaf));
 
@@ -78,9 +57,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void EachSourceYieldsOnePlainAndOne5mClip()
         {
-            // The same source clip sits in both a plain tree and its height variant. One build must
-            // produce exactly one ELSleepUp.anim and one ELSleepUp5m.anim - not one per tree
-            // it appears in.
             var leaf = Clip("SleepUp", 0.5f);
             var source = Tree("SleepRoot",
                 Child(Tree("DefaultSleepingFacingUp", Child(leaf))),
@@ -116,8 +92,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void Nested5mTreeIsStillOffset()
         {
-            // The height tree buried under an intermediate blender must still be shifted - a 5m
-            // tree two levels down is the exact case that regressed once.
             var leaf = Clip("SleepUp", 0.5f);
             var source = Tree("SleepRoot",
                 Child(Tree("Mid", Child(Tree("DefaultSleepingFacingUp5m", Child(leaf))))));
@@ -146,8 +120,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void NonSleepTreeLeavesAreLeftAlone()
         {
-            // A tree that is neither a DefaultSleeping* nor a 5m tree is not part of the sleep
-            // build's worry, so its shared clips must survive untouched - no clone, no duplicate.
             var leaf = Clip("JustAGait", 1f);
             var source = Tree("GaitTree", Child(leaf));
 
@@ -161,17 +133,10 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void SiblingSleepTreesSharingOneLeafBothResolve()
         {
-            // The sleep template has several DefaultSleeping* assets (FacingUp, FacingUpFeetLock,
-            // ...) that share the same on-side leaf GUID. The build clones each one independently
-            // through its own CloneBlendTree call, so they must resolve to the same ELSleep asset.
-            // With a per-clone cache and delete-then-create, the first clone's reference would be
-            // orphaned when the second recreated the file with a fresh GUID.
             var shared = Clip("SleepUp", 0.5f);
             var up = Tree("DefaultSleepingFacingUp", Child(shared));
             var feetLock = Tree("DefaultSleepingFacingUpFeetLock", Child(shared));
 
-            // Two separate CloneBlendTree calls, one shared build cache, one output folder - the
-            // shape of the real build.
             var cloneUp = CloneForSleep(up, new Dictionary<string, Motion>());
             var cloneFeetLock = CloneForSleep(feetLock, new Dictionary<string, Motion>());
 
@@ -189,10 +154,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void RebuildOverwritesAChangedSourceClip()
         {
-            // Changing a package default or the user's override and rebuilding must update the
-            // generated clip, not pin the stale animation. The rebuild uses a fresh cache (a real
-            // second build would) and must overwrite the existing ELSleep asset in place, keeping
-            // its GUID so earlier references survive.
             var leaf = Clip("SleepUp", 0.5f);
             var source = Tree("DefaultSleepingFacingUp", Child(leaf));
 
@@ -200,7 +161,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             var firstPath = AssetDatabase.GetAssetPath(((AnimationClip)firstClone.children[0].motion));
             Assert.That(RootY((AnimationClip)firstClone.children[0].motion), Is.EqualTo(0.5f).Within(0.0001f));
 
-            // The source changed between builds; a fresh cache simulates the new build.
             SetRootY(leaf, 2.5f);
             _clipCache = new Dictionary<(string, bool), AnimationClip>();
             var secondClone = CloneForSleep(source, new Dictionary<string, Motion>());
@@ -215,8 +175,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         [Test]
         public void UserOverrideIsNamedFromTheEasyLocoSlotNotTheClipFile()
         {
-            // A custom clip in the Up slot must still write ELSleepUp.anim - not ELMyNap.anim -
-            // so a rebuild overwrites and Unity's filename-matches-object-name warning stays quiet.
             var usersClip = Clip("MyNap", 0.5f);
             var source = Tree("DefaultSleepingFacingUp", Child(Clip("SleepUp", 0.5f)));
             var replacements = new Dictionary<string, Motion> { { EasyLocoConst.SleepUpTarget, usersClip } };
@@ -232,12 +190,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         private BlendTree CloneForSleep(BlendTree source, IReadOnlyDictionary<string, Motion> replacements)
         {
-            // _folder is a real Assets folder so CloneBlendTree can write the clone and duplicates.
-            // The returned tree is the object CloneBlendTree saved: its duplicated leaf clips are
-            // persisted assets (ELSleep*.anim), so their asset paths are valid in memory too - a
-            // non-sleep leaf that stays a shared in-memory clip is exactly what the last test needs
-            // to see without a reload that would drop it. The shared build cache is threaded through
-            // so CloneBlendTree calls within one test share it, as they do in the real build.
             return EasyLocoModularAvatarBuilder.CloneBlendTree(
                 source, new MotionReplacements(replacements), _folder, _clipCache, isSleepBuild: true);
         }
@@ -270,6 +222,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         private BlendTree Tree(string name, params ChildMotion[] children)
         {
+            // Unity redistributes child thresholds if this is still true when children are assigned.
             var tree = new BlendTree { name = name, useAutomaticThresholds = false };
             spawned.Add(tree);
             tree.children = children;

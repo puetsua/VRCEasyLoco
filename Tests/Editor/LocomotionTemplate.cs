@@ -6,16 +6,9 @@ using UnityEditor.Animations;
 
 namespace Puetsua.VRCEasyLoco.Editor.Tests
 {
-    /// <summary>
-    /// Reading the shipped base template, shared by the tests that pin it. The template branches
-    /// locomotion on VRMode into two sub-state machines that each carry their own Standing,
-    /// Crouching and Prone - so every lookup here goes through a branch name. Flattening the layer
-    /// instead would silently test whichever branch Unity serialized first.
-    /// </summary>
+    /// <summary>Shipped base template, looked up by VRMode branch. Do not flatten the layer.</summary>
     internal static class LocomotionTemplate
     {
-        public const string Path = EasyLocoConst.PackageRoot + "/Animators/EasyLocoBaseTemplate.controller";
-
         public static readonly string[] Branches =
         {
             EasyLocoConst.DesktopLocomotionStateMachine,
@@ -24,7 +17,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         public static readonly string[] Stances = { "Standing", "Crouching", "Prone" };
 
-        /// <summary>The named branch's own stance states, by state name.</summary>
         public static Dictionary<string, AnimatorState> StanceStates(string branchName)
         {
             var branch = Branch(branchName);
@@ -37,8 +29,8 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
         public static AnimatorStateMachine Branch(string branchName)
         {
-            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(Path);
-            Assume.That(controller, Is.Not.Null, $"Base template not found at {Path}");
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(EasyLocoConst.BaseTemplatePath);
+            Assume.That(controller, Is.Not.Null, $"Base template not found at {EasyLocoConst.BaseTemplatePath}");
 
             var layer = controller.layers.FirstOrDefault(l => l.name == "Locomotion");
             Assume.That(layer, Is.Not.Null, "Locomotion layer missing from base template");
