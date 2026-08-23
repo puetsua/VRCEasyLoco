@@ -78,9 +78,10 @@ namespace Puetsua.VRCEasyLoco.Editor
         public const string EnableHeightParam = "EL/EnableHeight";
         public const string AdjustHeightParam = "EL/AdjustHeight";
         public const string HeightStateSuffix = " Height";
-        public const string PoseSpaceLayer = "PoseSpaceLoopSet";
+        public const string PoseSpaceLayer = "PoseSpace";
         public const string PoseSpaceIdleState = "Idle";
         public const string PoseSpaceSleepIdleState = "SleepModeIdle";
+        public const string PoseSpaceEnableHeightState = "EnableHeight";
         public const string PoseSpaceState = "PoseSpace";
         public const string PoseSpaceRepeatState = "PoseSpaceRepeat";
 

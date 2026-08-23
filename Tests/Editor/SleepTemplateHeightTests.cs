@@ -138,7 +138,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
         {
             var controller = LoadController();
             var layer = controller.layers.FirstOrDefault(item => item.name == EasyLocoConst.PoseSpaceLayer);
-            Assert.That(layer, Is.Not.Null, "PoseSpaceLoopSet layer missing from the sleep template");
+            Assert.That(layer, Is.Not.Null, "PoseSpace layer missing from the sleep template");
             Assert.That(layer.defaultWeight, Is.EqualTo(1f));
 
             var byName = layer.stateMachine.states
@@ -149,6 +149,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             {
                 EasyLocoConst.PoseSpaceIdleState,
                 EasyLocoConst.PoseSpaceSleepIdleState,
+                EasyLocoConst.PoseSpaceEnableHeightState,
                 EasyLocoConst.PoseSpaceState,
                 EasyLocoConst.PoseSpaceRepeatState,
             }));
@@ -156,6 +157,7 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
 
             var idle = byName[EasyLocoConst.PoseSpaceIdleState];
             var sleepIdle = byName[EasyLocoConst.PoseSpaceSleepIdleState];
+            var enableHeight = byName[EasyLocoConst.PoseSpaceEnableHeightState];
             var poseSpace = byName[EasyLocoConst.PoseSpaceState];
             var repeat = byName[EasyLocoConst.PoseSpaceRepeatState];
 
@@ -169,13 +171,11 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 "Idle must enter SleepModeIdle when SleepMode is on and Upright is low");
 
             Assert.That(sleepIdle.transitions.Any(transition =>
-                    transition.destinationState == poseSpace
+                    transition.destinationState == enableHeight
                     && transition.conditions.Any(condition =>
-                        condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.If)
-                    && transition.conditions.Any(condition =>
-                        condition.parameter == EasyLocoConst.AdjustHeightParam && condition.mode == AnimatorConditionMode.If)),
+                        condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.If)),
                 Is.True,
-                "SleepModeIdle must enter PoseSpace when EnableHeight and AdjustHeight are on");
+                "SleepModeIdle must enter EnableHeight when EnableHeight is on");
             Assert.That(sleepIdle.transitions.Where(transition =>
                     transition.destinationState == idle
                     && transition.conditions.Any(condition =>
@@ -185,6 +185,25 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 Is.True,
                 "SleepModeIdle must not return to Idle on Upright while EnableHeight is on");
 
+            Assert.That(enableHeight.transitions.Any(transition =>
+                    transition.destinationState == poseSpace
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == EasyLocoConst.AdjustHeightParam && condition.mode == AnimatorConditionMode.If)),
+                Is.True,
+                "EnableHeight must enter PoseSpace when AdjustHeight is on");
+            Assert.That(enableHeight.transitions.Any(transition =>
+                    transition.destinationState == sleepIdle
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.IfNot)),
+                Is.True,
+                "EnableHeight must return to SleepModeIdle when EnableHeight turns off");
+
+            Assert.That(poseSpace.transitions.Any(transition =>
+                    transition.destinationState == enableHeight
+                    && transition.conditions.Any(condition =>
+                        condition.parameter == EasyLocoConst.AdjustHeightParam && condition.mode == AnimatorConditionMode.IfNot)),
+                Is.True,
+                "PoseSpace must return to EnableHeight when AdjustHeight turns off");
             Assert.That(poseSpace.transitions.Any(transition =>
                     transition.destinationState == repeat
                     && transition.conditions.Any(condition =>
@@ -197,6 +216,9 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                         condition.parameter == "IsLocal" && condition.mode == AnimatorConditionMode.If)),
                 Is.True);
 
+            Assert.That(idle.behaviours, Is.Not.Empty, "Idle must exit VRC pose space");
+            Assert.That(sleepIdle.behaviours, Is.Not.Empty, "SleepModeIdle must enter VRC pose space");
+            Assert.That(enableHeight.behaviours, Is.Not.Empty, "EnableHeight must stay in VRC pose space");
             Assert.That(poseSpace.behaviours, Is.Not.Empty, "PoseSpace must enter VRC pose space");
             Assert.That(repeat.behaviours, Is.Not.Empty, "PoseSpaceRepeat must re-enter VRC pose space");
         }
@@ -270,11 +292,11 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
             Assert.That(
                 HasStateMachineRoute(sleeping, feetUnlock, feetLock, lockOn: true),
                 Is.True,
-                "FeetUnlock must re-enter FeetLock while SleepMode and EnableHeight are on");
+                "FeetUnlock must re-enter FeetLock without requiring Upright");
             Assert.That(
                 HasStateMachineRoute(sleeping, feetLock, feetUnlock, lockOn: false),
                 Is.True,
-                "FeetLock must re-enter FeetUnlock while SleepMode and EnableHeight are on");
+                "FeetLock must re-enter FeetUnlock without requiring Upright");
         }
 
         [Test]
@@ -355,10 +377,6 @@ namespace Puetsua.VRCEasyLoco.Editor.Tests
                 transition.destinationStateMachine == to
                 && transition.conditions.Any(condition =>
                     condition.parameter == EasyLocoConst.FeetLockParam && condition.mode == expectedFeet)
-                && transition.conditions.Any(condition =>
-                    condition.parameter == EasyLocoConst.SleepModeParam && condition.mode == AnimatorConditionMode.If)
-                && transition.conditions.Any(condition =>
-                    condition.parameter == EasyLocoConst.EnableHeightParam && condition.mode == AnimatorConditionMode.If)
                 && transition.conditions.All(condition => condition.parameter != "Upright"));
         }
 
