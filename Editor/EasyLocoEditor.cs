@@ -558,10 +558,12 @@ namespace Puetsua.VRCEasyLoco.Editor
 
         private static void Build(EasyLoco easyLoco)
         {
+            // Capture before the main build: replacing the generated host destroys a
+            // nested sleep module with it, and checking after would skip its rebuild.
+            var sleepIncluded = EasyLocoModularAvatarBuilder.HasSleepLocomotion(easyLoco);
             try
             {
                 EasyLocoModularAvatarBuilder.Build(easyLoco);
-                var sleepIncluded = EasyLocoModularAvatarBuilder.HasSleepLocomotion(easyLoco);
                 if (sleepIncluded)
                 {
                     EasyLocoModularAvatarBuilder.BuildSleepLocomotion(easyLoco);
