@@ -61,7 +61,7 @@ brings the locomotion, not sleeping. Drop `EasyLocoSleep.prefab` alongside it fo
 ### VCC
 
 1. Open VRChat Creator Companion.
-2. Add the Pue-Tsua Workshop VPM listing.
+2. Add the [Pue-Tsua Workshop VPM listing](https://vrchat.puetsua.net/vpm/).
 3. Open your avatar project in VCC.
 4. Add `EasyLoco` to the project.
 

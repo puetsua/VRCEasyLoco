@@ -52,7 +52,7 @@ prefab，記得再按一次睡覺按鈕，它才會移到正確位置。
 ### VCC
 
 1. 開啟 VRChat Creator Companion。
-2. 加入 Pue-Tsua Workshop 的 VPM listing。
+2. 加入 [Pue-Tsua Workshop 的 VPM listing](https://vrchat.puetsua.net/vpm/)。
 3. 在 VCC 開啟你的 avatar project。
 4. 將 `EasyLoco` 加入 project。
 
